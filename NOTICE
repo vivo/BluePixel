@@ -1,0 +1,92 @@
+BluePixel
+Copyright 2026 vivo Mobile Communication Co., Ltd.
+
+This product includes software developed by third parties, as listed below.
+
+========================================================================
+Python Dependencies
+========================================================================
+
+This product depends on the following Python packages:
+
+--------------------------------------------------------------------------------
+Package: accelerate
+License: Apache-2.0
+Copyright: (c) 2021 The HuggingFace Team
+Homepage: https://github.com/huggingface/accelerate
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: diffusers
+License: Apache-2.0
+Copyright: (c) 2025 The HuggingFace Team
+Homepage: https://github.com/huggingface/diffusers
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: pillow
+License: MIT-CMU
+Copyright: (c) 2010 Jeffrey 'Alex' Clark and contributors
+Homepage: https://github.com/python-pillow/Pillow/
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: safetensors
+License: Apache License 2.0
+Homepage: https://github.com/safetensors/safetensors
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: torch
+License: BSD-3-Clause
+Copyright: 
+Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
+Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
+Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
+Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
+Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+Homepage: https://github.com/pytorch/pytorch
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: torchvision
+License: BSD-3-Clause
+Copyright: (c) 2016 Soumith Chintala
+Homepage: https://github.com/pytorch/vision
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Package: transformers
+License: Apache-2.0
+Copyright: (c) 2018 The HuggingFace Team
+Homepage: https://github.com/huggingface/transformers
+--------------------------------------------------------------------------------
+
+========================================================================
+Model Weights
+========================================================================
+
+--------------------------------------------------------------------------------
+Base Model: Flux 2 Klein
+License: FLUX Non-Commercial License
+Copyright: (c) 2025 Black Forest Labs Inc.
+Homepage: https://huggingface.co/black-forest-labs
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Base Model: DCAE
+License: Apache-2.0
+Copyright: (c) 2024 Nvidia
+Homepage: https://github.com/NVlabs/SANA
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Base Model: Qwen3
+License: Apache-2.0
+Copyright: (c) 2016 Alibaba Cloud
+Homepage: https://huggingface.co/Qwen
+--------------------------------------------------------------------------------

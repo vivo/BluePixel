@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BluePixel: Toward Native 4K Agentic Image Editing</title>
+<meta property="og:title" content="BluePixel: Toward Native 4K Agentic Image Editing">
+<meta property="og:description" content="A native 4K editing model + an agent framework — complete training recipe disclosed. 4K edit in 8.7s on a single XPU.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="img/main_sign_out.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%234a9eda'/%3E%3Crect x='2' y='3' width='1' height='2' fill='%23141625'/%3E%3Crect x='5' y='3' width='1' height='2' fill='%23141625'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<!-- ===== Visitor analytics (GoatCounter, free for non-commercial, cookieless) =====
+     1) register your site at https://www.goatcounter.com (use the final GitHub Pages URL)
+     2) uncomment the line below and replace YOURCODE with your GoatCounter site code
+<script data-goatcounter="https://YOURCODE.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+================================================================================= -->
+<style>
+  :root {
+    --bg:#1a1c2c; --bg2:#29366f; --panel:#333c57; --panel2:#3b4265;
+    --ink:#f4f4f4; --dim:#94b0c2;
+    --blue:#4a9eda; --blue-dark:#2b6cb0; --blue-light:#a8d8ff;
+    --gold:#ffd700; --green:#38b764; --red:#e84855; --border:#0f1120;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--bg);
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 4px);
+    color:var(--ink); font-family:'VT323',monospace; font-size:22px; line-height:1.45;
+  }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 20px; }
+  .card {
+    background:var(--panel); border:4px solid var(--border);
+    box-shadow:0 6px 0 var(--border), inset 0 4px 0 rgba(255,255,255,0.06);
+    padding:22px 24px; margin-bottom:26px; position:relative;
+    transition:transform .08s steps(2), box-shadow .08s steps(2);
+  }
+  .card:hover { transform:translateY(-3px); box-shadow:0 9px 0 var(--border), inset 0 4px 0 rgba(255,255,255,0.06); }
+  .card h2 {
+    font-family:'Press Start 2P',monospace; font-size:15px; color:var(--gold);
+    margin-bottom:6px; letter-spacing:1px; text-shadow:2px 2px 0 var(--border);
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .card h2::before { content:"► "; color:var(--blue); }
+  .stg { font-size:9px; background:var(--green); color:#fff; padding:4px 7px; border:2px solid var(--border); letter-spacing:0; }
+  .sub { color:var(--dim); font-size:20px; margin-bottom:14px; }
+  .sub b { color:var(--blue-light); }
+
+  header { padding:34px 0 10px; text-align:center; }
+  .sky { position:relative; background:linear-gradient(#29366f 0 55%, #3b4265 55% 100%);
+    border:4px solid var(--border); box-shadow:0 8px 0 var(--border); overflow:hidden; padding:34px 18px 26px; }
+  .cloud { position:absolute; opacity:.35; animation:drift 38s linear infinite; }
+  .cloud.c2 { animation-duration:55s; top:18px; }
+  @keyframes drift { from{left:-140px} to{left:105%} }
+  .sky .pxf { position:absolute; bottom:-10px; width:7px; height:7px; opacity:.8; animation:rise linear infinite; }
+  @keyframes rise { 0%{transform:translateY(0);opacity:0} 8%{opacity:.85} 90%{opacity:.85} 100%{transform:translateY(-330px);opacity:0} }
+  .burst { position:absolute; width:7px; height:7px; z-index:5; pointer-events:none; transition:transform .55s steps(6), opacity .55s steps(6); }
+
+  h1.title { font-family:'Press Start 2P',monospace; font-size:clamp(17px,3.4vw,30px); line-height:1.6;
+    color:#fff; text-shadow:3px 3px 0 var(--blue-dark), 6px 6px 0 var(--border); margin:14px auto 8px; max-width:900px; }
+  .tagline { color:var(--blue-light); font-size:24px; }
+  .authors { color:var(--dim); font-size:20px; margin-top:10px; }
+  .authors b { color:var(--ink); }
+  .hero { display:flex; gap:22px; align-items:flex-end; justify-content:center; margin:6px 0 2px; flex-wrap:wrap; }
+  .hero svg { image-rendering:pixelated; }
+  .mascot { cursor:pointer; animation:bob 1.2s steps(1) infinite alternate; }
+  .mascot.jump { animation:jump .45s steps(2); }
+  @keyframes bob { from{transform:translateY(0)} to{transform:translateY(-7px)} }
+  @keyframes jump { 0%{transform:translateY(0)} 50%{transform:translateY(-22px)} 100%{transform:translateY(0)} }
+  .scr { animation:scr 2.4s steps(1) infinite; }
+  @keyframes scr { 0%,55%{opacity:1} 56%,70%{opacity:.15} 71%,100%{opacity:1} }
+
+  .btnrow { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:18px 0 6px; }
+  a.btn { display:inline-block; text-decoration:none; font-family:'Press Start 2P',monospace; font-size:11px;
+    color:var(--ink); background:var(--blue-dark); border:4px solid var(--border);
+    box-shadow:0 5px 0 var(--border); padding:12px 16px; position:relative; top:0;
+    transition:top .06s steps(1), box-shadow .06s steps(1), filter .06s steps(1); }
+  a.btn:hover { top:4px; box-shadow:0 1px 0 var(--border); filter:brightness(1.15); }
+  a.btn.demo { background:#7a9e2f; }
+  a.btn.paper { background:#8b3f96; }
+  a.btn b { color:var(--gold); }
+
+  .ticker { overflow:hidden; border:4px solid var(--border); background:#141625; box-shadow:0 5px 0 var(--border); margin:16px 0 26px; padding:9px 0; }
+  .tk { display:inline-block; white-space:nowrap; font-family:'Press Start 2P',monospace; font-size:10px; color:var(--gold); animation:tick 26s linear infinite; }
+  .tk b { color:var(--blue-light); }
+  @keyframes tick { to { transform:translateX(-50%); } }
+
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; margin-bottom:26px; }
+  .stat { background:var(--panel2); border:4px solid var(--border); box-shadow:0 5px 0 var(--border); padding:16px 14px; text-align:center; }
+  .stat .num { font-family:'Press Start 2P',monospace; font-size:20px; color:var(--blue-light); text-shadow:2px 2px 0 var(--border); }
+  .stat .num em { font-style:normal; color:var(--gold); }
+  .stat .lbl { color:var(--dim); margin-top:8px; font-size:20px; }
+
+  .caption { color:var(--dim); font-size:19px; margin-top:10px; }
+  .wide-img { width:100%; border:4px solid var(--border); box-shadow:0 5px 0 var(--border); display:block; }
+
+  sup.cite a { color:var(--gold); text-decoration:none; font-family:'Press Start 2P',monospace; font-size:10px; padding:1px 3px; background:#20243a; border:2px solid var(--border); }
+  sup.cite a:hover { background:var(--blue-dark); color:#fff; }
+
+  table.px { width:100%; border-collapse:collapse; font-size:21px; }
+  table.px th, table.px td { border:3px solid var(--border); padding:7px 10px; text-align:left; }
+  table.px th { font-family:'Press Start 2P',monospace; font-size:10px; color:var(--gold); background:var(--panel2); }
+  table.px td.hi { color:var(--blue-light); }
+
+  .bar { height:22px; background:#20243a; border:3px solid var(--border); position:relative; margin:4px 0 12px; }
+  .bar i { position:absolute; inset:0; width:0; transition:width 1.2s steps(16); background:repeating-linear-gradient(90deg, var(--blue) 0 8px, var(--blue-dark) 8px 16px); }
+  .bar.gold i { background:repeating-linear-gradient(90deg, var(--gold) 0 8px, #b39b00 8px 16px); }
+  .bar.fill i { width:var(--w); }
+
+  .phase-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+  .phase { background:var(--panel2); border:4px solid var(--border); box-shadow:0 5px 0 var(--border); padding:16px; transition:transform .08s steps(2); }
+  .phase:hover { transform:translateY(-3px); }
+  .phase h3 { font-family:'Press Start 2P',monospace; font-size:11px; margin-bottom:10px; color:var(--blue-light); }
+  .phase p { color:var(--ink); font-size:20px; }
+  .arrow { text-align:center; color:var(--gold); font-size:26px; }
+
+  /* sliders (reusable) */
+  .lvl-btns { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .lvl { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--ink);
+    background:var(--panel2); border:3px solid var(--border); box-shadow:0 4px 0 var(--border);
+    padding:8px 10px; cursor:pointer; position:relative; top:0; transition:all .06s steps(1); }
+  .lvl:hover { top:2px; box-shadow:0 2px 0 var(--border); }
+  .lvl.on { background:var(--blue-dark); color:var(--gold); }
+  .compare { position:relative; overflow:hidden; border:4px solid var(--border); box-shadow:0 5px 0 var(--border);
+    cursor:ew-resize; user-select:none; touch-action:none; background:#fff; aspect-ratio:3/2; max-height:620px; margin:0 auto; }
+  .compare img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; pointer-events:none; }
+  .compare .good { position:absolute; top:0; left:0; height:100%; width:14%; overflow:hidden; border-right:4px solid var(--gold); }
+  .compare .handle { position:absolute; top:50%; left:14%; transform:translate(-50%,-50%);
+    width:52px; height:52px; background:var(--gold); border:4px solid var(--border);
+    box-shadow:0 4px 0 var(--border); display:flex; align-items:center; justify-content:center;
+    font-size:22px; pointer-events:none; }
+  .tagchip { position:absolute; top:10px; font-family:'Press Start 2P',monospace; font-size:9px; padding:6px 8px; border:3px solid var(--border); z-index:3; }
+  .tag-bad { right:10px; background:var(--red); color:#fff; }
+  .tag-good { left:10px; background:var(--green); color:#fff; }
+  .tag-warn { left:10px; background:#c98a00; color:#fff; }
+  .arcade-hint { color:var(--dim); font-size:19px; margin-top:10px; }
+
+  /* compare-the-field chips */
+  .vsline { margin-top:14px; display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .vslbl { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--blue-light); padding-top:7px; white-space:nowrap; }
+  .vschips { display:flex; gap:8px; flex-wrap:wrap; }
+  .vchip { font-family:'VT323',monospace; font-size:19px; color:var(--ink); cursor:pointer;
+    background:var(--panel2); border:3px solid var(--border); box-shadow:0 3px 0 var(--border);
+    padding:4px 10px; position:relative; top:0; transition:all .06s steps(1); }
+  .vchip:hover { top:2px; box-shadow:0 1px 0 var(--border); }
+  .vchip.gold { color:var(--gold); }
+  .vchip.on { background:var(--blue-dark); color:#fff; }
+
+  /* pair grids */
+  .pairgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+  .pframe { position:relative; margin:0; border:3px solid var(--border); background:#fff; }
+  .pframe img { width:100%; height:430px; object-fit:cover; display:block; }
+  .acard { margin:0; }
+  .acard .pairrow { gap:6px; }
+  .acard .pframe img { height:190px; }
+  .pairrow.big .pframe img { height:520px; }
+  .ptag { position:absolute; top:8px; left:8px; font-family:'Press Start 2P',monospace; font-size:8px; background:#0f1120; color:#fff; padding:4px 6px; z-index:2; }
+  .ptag-a { background:var(--green); }
+  .ptag-b { background:var(--red); }
+  .pz-hint { color:var(--dim); font-size:19px; }
+
+  /* gallery carousel */
+  .carousel { overflow:hidden; border:4px solid var(--border); box-shadow:0 6px 0 var(--border); background:#fff; position:relative; }
+  .carousel::before, .carousel::after { content:""; position:absolute; top:0; bottom:0; width:46px; z-index:2; pointer-events:none; }
+  .carousel::before { left:0; background:linear-gradient(90deg, rgba(15,17,32,.85), transparent); }
+  .carousel::after { right:0; background:linear-gradient(270deg, rgba(15,17,32,.85), transparent); }
+  .track { display:flex; width:max-content; animation:scrollx 110s linear infinite; }
+  .carousel:hover .track, .carousel:focus-within .track { animation-play-state:paused; }
+  @keyframes scrollx { to { transform:translateX(-50%); } }
+  .slide { width:940px; padding:14px 16px; border-right:4px solid var(--border); background:#fff; }
+  .slide a { text-decoration:none; display:block; }
+  .slide img { width:100%; display:block; border:3px solid var(--border); }
+  .slide figcaption { font-family:'VT323',monospace; font-size:20px; color:#22284a; padding:9px 4px 2px; line-height:1.3; }
+  .slide figcaption b { font-family:'Press Start 2P',monospace; font-size:10px; color:#2b6cb0; }
+  .hint { color:var(--dim); font-size:19px; margin-top:10px; text-align:center; }
+
+  pre.bib { font-family:'VT323',monospace; font-size:19px; background:#141625; border:4px solid var(--border);
+    box-shadow:0 5px 0 var(--border); padding:16px; overflow-x:auto; color:#c8f7ff; line-height:1.5; }
+  .copybtn { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--ink); cursor:pointer;
+    background:var(--blue-dark); border:3px solid var(--border); box-shadow:0 3px 0 var(--border);
+    padding:6px 9px; position:relative; top:0; transition:all .06s steps(1); margin-left:auto; }
+  .copybtn:hover { top:2px; box-shadow:0 1px 0 var(--border); }
+  ol.refs { margin-left:26px; }
+  ol.refs li { margin-bottom:7px; font-size:20px; }
+  ol.refs a { color:var(--blue-light); text-decoration:none; border-bottom:2px dotted var(--blue-dark); }
+  ol.refs a:hover { color:var(--gold); border-color:var(--gold); }
+  ol.refs .ven { color:var(--dim); }
+
+  footer { text-align:center; color:var(--dim); padding:30px 0 46px; font-size:20px; }
+  footer .heart { color:var(--red); cursor:pointer; display:inline-block; }
+  .blink { animation:blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50%{opacity:0} }
+
+  #sndbtn { position:fixed; top:12px; right:12px; z-index:10001; cursor:pointer; font-size:22px;
+    background:var(--panel2); border:3px solid var(--border); box-shadow:0 4px 0 var(--border); padding:6px 9px; line-height:1; }
+  #sndbtn:hover { filter:brightness(1.15); }
+  #toasts { position:fixed; right:14px; bottom:14px; z-index:10000; display:flex; flex-direction:column; gap:10px; }
+  .toast { background:var(--panel2); border:4px solid var(--border); box-shadow:0 5px 0 var(--border);
+    padding:10px 14px; font-family:'Press Start 2P',monospace; font-size:10px; color:var(--gold);
+    animation:tin .3s steps(3); max-width:320px; }
+  .toast small { display:block; color:var(--dim); font-family:'VT323',monospace; font-size:18px; margin-top:6px; }
+  @keyframes tin { from{transform:translateX(120%)} }
+  #crt { position:fixed; inset:0; pointer-events:none; z-index:9999; display:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.20) 0 2px, transparent 2px 4px); }
+  body.crt #crt { display:block; animation:flick 5s infinite steps(1); }
+  body.crt { filter:saturate(1.15) contrast(1.06); }
+  @keyframes flick { 0%,100%{opacity:1} 91%{opacity:1} 92%{opacity:.7} 93%{opacity:1} 96%{opacity:.85} 97%{opacity:1} }
+  .parade { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:9998; pointer-events:none; overflow:hidden; }
+  .parade svg { position:absolute; bottom:0; animation:march 9s linear infinite; }
+  @keyframes march { from{transform:translateX(-120px)} to{transform:translateX(105vw)} }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation:none !important; transition:none !important; }
+    .bar i { width:var(--w) !important; }
+  }
+  @media (max-width:640px){ body{font-size:20px;} .card{padding:16px;} .slide{width:78vw;} }
+</style>
+</head>
+<body>
+<div id="crt"></div>
+<div id="sndbtn" title="toggle 8-bit sound">🔇</div>
+<div id="toasts"></div>
+
+<div class="wrap">
+
+<header>
+  <div class="sky" id="sky">
+    <svg class="cloud" width="120" height="42" viewBox="0 0 120 42" aria-hidden="true">
+      <g fill="#a8d8ff"><rect x="20" y="14" width="60" height="14"/><rect x="34" y="6" width="30" height="10"/><rect x="10" y="22" width="90" height="12"/></g>
+    </svg>
+    <svg class="cloud c2" width="80" height="30" viewBox="0 0 80 30" aria-hidden="true">
+      <g fill="#a8d8ff"><rect x="12" y="10" width="44" height="10"/><rect x="22" y="4" width="20" height="8"/><rect x="6" y="16" width="62" height="9"/></g>
+    </svg>
+    <span class="pxf" style="left:8%;  background:#ffd700; animation-duration:7s;"></span>
+    <span class="pxf" style="left:22%; background:#4a9eda; animation-duration:9s; animation-delay:1.2s;"></span>
+    <span class="pxf" style="left:41%; background:#e84855; animation-duration:8s; animation-delay:2.5s;"></span>
+    <span class="pxf" style="left:63%; background:#38b764; animation-duration:10s; animation-delay:.6s;"></span>
+    <span class="pxf" style="left:78%; background:#a8d8ff; animation-duration:7.5s; animation-delay:3.2s;"></span>
+    <span class="pxf" style="left:92%; background:#ffd700; animation-duration:9.5s; animation-delay:1.8s;"></span>
+
+    <div class="hero">
+      <svg class="mascot" id="mascot" width="150" height="150" viewBox="0 0 34 21" aria-label="BluePixel mascot (click me!)">
+        <g fill="#ffd700">
+          <rect x="2" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/>
+          <rect x="3" y="3" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/>
+          <rect x="30" y="1" width="1" height="1"/><rect x="29" y="2" width="1" height="1"/>
+          <rect x="31" y="2" width="1" height="1"/><rect x="30" y="3" width="1" height="1"/>
+        </g>
+        <g transform="translate(20,3)">
+          <rect x="0" y="0" width="13" height="11" fill="#0f1120"/>
+          <rect x="1" y="1" width="11" height="8" fill="#a8d8ff"/>
+          <text class="scr" x="6.5" y="7.4" text-anchor="middle" font-family="'Press Start 2P',monospace" font-size="4.6" fill="#1a1c2c">4K</text>
+          <rect x="5" y="11" width="3" height="2" fill="#0f1120"/>
+          <rect x="3" y="13" width="7" height="1" fill="#0f1120"/>
+        </g>
+        <g transform="translate(1,5)">
+          <g fill="#2b6cb0">
+            <rect x="4" y="0" width="6" height="1"/><rect x="2" y="1" width="10" height="1"/>
+            <rect x="1" y="2" width="12" height="1"/><rect x="0" y="3" width="14" height="6"/>
+            <rect x="1" y="9" width="12" height="1"/><rect x="2" y="10" width="10" height="1"/>
+          </g>
+          <g fill="#4a9eda">
+            <rect x="3" y="1" width="8" height="1"/><rect x="2" y="2" width="10" height="1"/>
+            <rect x="1" y="3" width="12" height="6"/><rect x="2" y="9" width="10" height="1"/>
+          </g>
+          <g fill="#a8d8ff"><rect x="3" y="2" width="3" height="1"/><rect x="2" y="3" width="2" height="2"/></g>
+          <g id="eyeL" fill="#141625"><rect x="4" y="4" width="2" height="3"/></g>
+          <g id="eyeR" fill="#141625"><rect x="8" y="4" width="2" height="3"/></g>
+          <g fill="#ffffff"><rect x="4" y="4" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/></g>
+          <rect x="6" y="8" width="2" height="1" fill="#141625"/>
+          <g fill="#2b6cb0"><rect x="2" y="11" width="3" height="1"/><rect x="9" y="11" width="3" height="1"/></g>
+        </g>
+      </svg>
+    </div>
+
+    <h1 class="title">BLUEPIXEL<br>
+      <span style="font-size:.62em; color:#a8d8ff;">TOWARD NATIVE 4K AGENTIC IMAGE EDITING</span>
+    </h1>
+    <div class="tagline">A native 4K editing model + an agent framework — complete training recipe disclosed.<span class="blink">▌</span></div>
+    <div class="authors"><b>Shanyan Guan</b>, Shiyu Li, Xin Li, Zhizhou Chen, Yunzhe Xu, Yuehao Liu, Ruixue Shen, Shiju Zhang, Min Jin, Qiang Liu, Junbo Liu, Penggang Shi, Sheng Sun, Xiao Wang, Yong Zhang, Zhongang Qi, Wei Li, Chao Ma, Ying Tai, Yanhao Ge — <b>vivo</b></div>
+
+    <div class="btnrow">
+      <!-- TODO: replace with the waitlist / survey registration URL when it is live -->
+      <a class="btn demo" href="#" title="waitlist for the online demo — registration opens soon">▶ DEMO <b>WAITLIST</b><span style="font-size:8px; color:var(--gold)"> ·SOON</span></a>
+      <a class="btn paper" href="#" title="arXiv link placeholder">📕 <b>PAPER</b></a>
+      <!-- TODO: replace with the final repository URL when it is live -->
+      <a class="btn" href="#" title="repository link coming soon"><svg width="15" height="15" viewBox="0 0 16 16" style="vertical-align:-2px" aria-label="GitHub"><path fill="#f4f4f4" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> <b>CODE</b><span style="font-size:8px; color:var(--gold)"> ·SOON</span></a>
+      <a class="btn" href="https://huggingface.co/openvivo" target="_blank">🤗 <b>MODEL</b></a>
+      <a class="btn" href="https://modelscope.cn/organization/vivo" target="_blank"><svg width="17" height="13" viewBox="0 0 7 5" style="vertical-align:-2px" aria-label="ModelScope"><g fill="#5a6ff0"><rect x="0" y="0" width="1" height="5"/><rect x="6" y="0" width="1" height="5"/><rect x="1" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/></g></svg> <b>MODELSCOPE</b></a>
+    </div>
+  </div>
+</header>
+
+<div class="ticker">
+  <span class="tk">
+    ★ NATIVE 4K IN / 4K OUT &nbsp;✦&nbsp; <b>4-STEP</b> DISTILLATION &nbsp;✦&nbsp; 8.7 S PER EDIT ON A SINGLE P800 XPU &nbsp;✦&nbsp; <b>AGENTIC</b> VERIFY-AND-RETRY &nbsp;✦&nbsp; ACE-MOPD CONTINUAL LEARNING &nbsp;✦&nbsp; RANK 2ND ON VINS-4KEval++ &nbsp;✦&nbsp; &nbsp;&nbsp;
+    ★ NATIVE 4K IN / 4K OUT &nbsp;✦&nbsp; <b>4-STEP</b> DISTILLATION &nbsp;✦&nbsp; 8.7 S PER EDIT ON A SINGLE P800 XPU &nbsp;✦&nbsp; <b>AGENTIC</b> VERIFY-AND-RETRY &nbsp;✦&nbsp; ACE-MOPD CONTINUAL LEARNING &nbsp;✦&nbsp; RANK 2ND ON VINS-4KEval++ &nbsp;✦&nbsp; &nbsp;&nbsp;
+  </span>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="num">4K×4K</div><div class="lbl">native 4K in, native 4K out — no cascade SR</div></div>
+  <div class="stat"><div class="num"><em>8.7s</em></div><div class="lbl">per 4K edit — 4 steps, bf16, single Kunlunxin P800 XPU</div></div>
+  <div class="stat"><div class="num">2<span style="font-size:12px">nd</span>/7</div><div class="lbl">overall on VINS-4KEval++ (3,305 cases); NC 2nd only to GPT Image 2</div></div>
+  <div class="stat"><div class="num"><em>1st</em></div><div class="lbl">Hybrid &amp; Action on ImgEdit-Bench (tied 1st on Add)</div></div>
+</div>
+
+<!-- ============ QUEST MAP ============ -->
+<div class="card">
+  <h2>THE QUEST MAP 🗺</h2>
+  <div class="sub">One 1K editor, three training stages, one agent — every number and picture below comes straight from the paper. Scroll the journey.</div>
+  <div class="phase-row">
+    <div class="phase"><h3>PHASE 1 ⚙ INITIALIZE</h3>
+      <p>Swap the f=8 VAE for <b style="color:#a8d8ff">DCAE-F64</b><sup class="cite"><a href="#refs">[1]</a></sup>; progressive 8→32→64 projection distillation. A native-4K editor in ~4 days on 32 Kunlunxin P800 XPUs.</p></div>
+    <div class="phase"><h3>PHASE 2 ⚙ ENHANCE</h3>
+      <p>Progressive SFT → benchmark-driven rebalancing → <b style="color:#a8d8ff">ACE-MOPD</b><sup class="cite"><a href="#refs">[2,4]</a></sup> continual learning (gradient-orthogonal LoRA<sup class="cite"><a href="#refs">[3,5]</a></sup>) → two-stage RL with DiffusionNFT<sup class="cite"><a href="#refs">[6]</a></sup> (PickScore<sup class="cite"><a href="#refs">[7]</a></sup>, then BluePixReward).</p></div>
+    <div class="phase"><h3>PHASE 3 ⚙ ACCELERATE</h3>
+      <p><b style="color:#a8d8ff">Background-anchored distillation</b> compresses 50 steps to 4 while anchoring non-edited regions — keeping 4K fidelity at production latency.</p></div>
+  </div>
+  <div class="arrow" style="margin-top:8px">▼ then an agent takes over ▼</div>
+  <div class="phase" style="margin-top:8px"><h3>BLUEPIXEL AGENT 🤖</h3>
+    <p>Routes each request across <b style="color:#a8d8ff">specialist + general tools</b>, grounds vague instructions, verifies every candidate with BluePixReward, and <b style="color:#a8d8ff">retries within bounded attempts</b>.</p></div>
+</div>
+
+<!-- ============ STAGE 1 ============ -->
+<div class="card">
+  <h2><span class="stg">STAGE 1/4</span> INITIALIZE 4K ⚙</h2>
+  <div class="sub">Rewire a 1K editor for native 4K: DCAE-F64 + progressive 8→32→64 adaptation. <b>~4 days, 32 Kunlunxin XPUs, 200K samples.</b> Phase 1 already lands the edit — the later stages make it faithful and crisp. Drag the gear:</div>
+  <div class="lvl-btns" id="phLvls"></div>
+  <div class="compare" id="phCmp">
+    <img id="phBad" src="img/ph1_giraffe_p1.jpg" alt="Phase 1 output" draggable="false">
+    <div class="good" id="phGood"><img id="phGoodImg" src="img/ph1_giraffe_fin.jpg" alt="final output" draggable="false"></div>
+    <div class="handle" id="phHandle">⚙</div>
+    <span class="tagchip tag-warn">PHASE 1</span>
+    <span class="tagchip tag-good">FINAL · ALL STAGES</span>
+  </div>
+  <div class="arcade-hint">same instruction, same input — Phase 1 output vs the finished model.</div>
+</div>
+
+<!-- ============ STAGE 2 ============ -->
+<div class="card">
+  <h2><span class="stg">STAGE 2/4</span> ABSORB THE LONG TAIL 🧠</h2>
+  <div class="sub"><b style="color:#a8d8ff">ACE-MOPD</b> continual learning adds a long tail of vertical skills group by group — <b>CIE total 6.24 → 8.87</b> while general editing moves less than ±0.03. The template bank, as visualization strips from the paper:</div>
+  <img class="wide-img" src="img/opd_hairstyles.jpg" alt="hairstyle templates" loading="lazy">
+  <div class="caption">hairstyles — 26 templates in the bank, each learned from a few dozen samples</div>
+  <img class="wide-img" src="img/opd_expression.jpg" alt="expression templates" loading="lazy" style="margin-top:12px">
+  <img class="wide-img" src="img/opd_pose.jpg" alt="pose templates" loading="lazy" style="margin-top:12px">
+  <img class="wide-img" src="img/opd_effects.jpg" alt="global effect templates" loading="lazy" style="margin-top:12px">
+  <div class="caption">expression, pose, and global photo effects — each strip: the source image, then the template outputs. Every group is distilled back into the base model (MOPD) before the next group starts.</div>
+</div>
+
+<!-- ============ STAGE 3 ============ -->
+<div class="card">
+  <h2><span class="stg">STAGE 3/4</span> SHARPEN &amp; GO FAST ⚡</h2>
+  <div class="sub">Two-stage RL refines aesthetics and instruction fidelity. Then <b style="color:#a8d8ff">background-anchored distillation</b> cuts 50 denoising steps to 4 — anchoring non-edited regions so 4K fidelity survives.</div>
+  <div class="stats" style="margin-bottom:0">
+    <div class="stat"><div class="num">50 → <em>4</em></div><div class="lbl">denoising steps</div></div>
+    <div class="stat"><div class="num"><em>~4×</em></div><div class="lbl">inference speedup</div></div>
+    <div class="stat"><div class="num"><em>8.7s</em></div><div class="lbl">per native-4K edit, single P800 XPU (bf16)</div></div>
+    <div class="stat"><div class="num">✓</div><div class="lbl">success rate &amp; background consistency preserved</div></div>
+  </div>
+</div>
+
+<!-- ============ STAGE 4 ============ -->
+<div class="card">
+  <h2><span class="stg">STAGE 4/4</span> DELEGATE TO THE AGENT 🤖</h2>
+  <div class="sub">The harness decomposes requests, grounds vague instructions (even web facts like “this year’s zodiac”), verifies every candidate with BluePixReward, and <b>retries within bounded attempts</b>.</div>
+  <div class="pairgrid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));">
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/gal_decaf_backbone.jpg" loading="lazy" alt=""><span class="ptag ptag-b">BACKBONE</span></figure>
+        <figure class="pframe"><img src="img/arc_decaf_out.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">verify-and-retry: the backbone garbles “Decaf” — the agent lands it</figcaption>
+    </figure>
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/gal_couple_backbone.jpg" loading="lazy" alt=""><span class="ptag ptag-b">BACKBONE</span></figure>
+        <figure class="pframe"><img src="img/gal_couple_agent.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">verify-and-retry: the backbone overshoots to a stiff grin — the agent returns serene</figcaption>
+    </figure>
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/gal_mask_backbone.jpg" loading="lazy" alt=""><span class="ptag ptag-b">BACKBONE</span></figure>
+        <figure class="pframe"><img src="img/gal_mask_out.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">verify-and-retry: the backbone leaves the crack — the agent restores the metal</figcaption>
+    </figure>
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/gal_zodiac_in.jpg" loading="lazy" alt=""><span class="ptag ptag-b">INPUT</span></figure>
+        <figure class="pframe"><img src="img/arc_zodiac_out.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">grounding: “this year’s zodiac” resolved by web search</figcaption>
+    </figure>
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/gal_fx_in.jpg" loading="lazy" alt=""><span class="ptag ptag-b">INPUT</span></figure>
+        <figure class="pframe"><img src="img/arc_fx_out.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">specialist tools: effects + dialogue beyond the photo</figcaption>
+    </figure>
+    <figure class="acard">
+      <div class="pairrow">
+        <figure class="pframe"><img src="img/arc_filter_in.jpg" loading="lazy" alt=""><span class="ptag ptag-b">INPUT</span></figure>
+        <figure class="pframe"><img src="img/arc_filter_out.jpg" loading="lazy" alt=""><span class="ptag ptag-a">AGENT · LUT</span></figure>
+      </div>
+      <figcaption class="pz-hint" style="padding:8px 4px">specialist route: LUT color grading for a calibrated look</figcaption>
+    </figure>
+  </div>
+</div>
+
+<!-- ============ STAGE 5 (benchmarks) ============ -->
+<div class="card">
+  <h2><span class="stg">BONUS</span> BEFORE / AFTER — DRAG THE BENCHMARK 🎚</h2>
+  <div class="sub">The paper’s three headline examples, panel by panel. Drag the wand — and compare the whole field while you’re at it.</div>
+  <div class="lvl-btns" id="bmLvls"></div>
+  <div class="compare" id="bmCmp">
+    <img id="bmBad" src="img/main_horse_in.jpg" alt="input image" draggable="false">
+    <div class="good" id="bmGood"><img id="bmGoodImg" src="img/main_horse_out.jpg" alt="BluePixel output" draggable="false"></div>
+    <div class="handle" id="bmHandle">🪄</div>
+    <span class="tagchip tag-good" id="bmAfterTag">AFTER · BLUEPIXEL</span>
+    <span class="tagchip tag-bad">BEFORE · INPUT</span>
+  </div>
+  <div class="vsline"><span class="vslbl">COMPARE THE FIELD ▸</span><span class="vschips" id="vschips"></span></div>
+  <div class="arcade-hint">The same job takes <b style="color:#a8d8ff">8.7 s</b> at native 4K — registration opens soon.</div>
+</div>
+
+<div class="card">
+  <h2>THE SCOREBOARD 🏆</h2>
+  <table class="px">
+    <tr><th>Benchmark</th><th>What it shows</th><th>Headline</th></tr>
+    <tr><td>VINS-4KEval++<br><span style="color:#94b0c2">3,305 native-4K cases</span></td><td>main 4K comparison, 7 models <sup class="cite"><a href="#refs">[8]</a></sup></td><td class="hi">Overall <b>8.62</b> — 2nd of 7; NC 9.06, 2nd only to GPT Image 2</td></tr>
+    <tr><td>ImgEdit-Bench<sup class="cite"><a href="#refs">[9]</a></sup></td><td>nine editing categories</td><td class="hi"><b>1st</b> on Hybrid (4.59) &amp; Action (4.93), tied 1st on Add</td></tr>
+    <tr><td>CIE-Bench<sup class="cite"><a href="#refs">[2]</a></sup></td><td>continual learning of vertical skills</td><td class="hi">total 6.24 → <b>8.87</b> with ACE-MOPD; long-sequence few-shot learning</td></tr>
+    <tr><td>Speed</td><td>production latency</td><td class="hi">50 steps → <b>4 steps</b>; a 4K edit in <b>8.7 s</b> (single P800 XPU, bf16)</td></tr>
+  </table>
+  <div style="margin-top:18px; color:#94b0c2;">Per-seed stability — 8-seed mean Overall 8.624, span 0.053:</div>
+  <div class="bar" style="--w:96%"><i></i></div>
+  <div style="color:#94b0c2;">CIE total across the recipe (SFT → +ACE-MOPD → +RL):</div>
+  <div class="bar gold" style="--w:72%"><i></i></div>
+</div>
+
+<div class="card">
+  <h2>ABSTRACT</h2>
+  <p>Instruction-driven image editing has reached native 4K, yet how such editors are trained remains undisclosed, and pretraining one from scratch is beyond most teams. The task itself compounds the difficulty: a single end-to-end editor cannot make precise parametric adjustments, match specialized experts, or interpret the vague instructions users actually write. We argue that 4K editing is a <i>system</i> problem rather than a single-model problem, and present <b style="color:#a8d8ff">BluePixel</b>, a native-4K editing model with an agent framework; the complete training recipe is disclosed in this paper. To make 4K training practical, BluePixel turns a 1K-pretrained editor into a native-4K one through a progressive VAE adaptation that keeps 4K training as affordable as 1K, absorbs a long tail of vertical editing skills through continual learning, and refines the aesthetic–fidelity trade-off with reinforcement learning. Background-anchored distillation then compresses 50 denoising steps to 4, completing a 4K edit in 8.7&nbsp;s on a single Kunlunxin P800 XPU while preserving task success rate and background consistency. For controllability, BluePixel Agent decomposes user instructions into specialist and general operations, verifies every result with the same reward model that guided its training, and retries within bounded attempts. On VINS-4KEval++ (3,305 native-4K editing cases), BluePixel ranks second among seven models, with non-edited-region consistency second only to GPT Image 2.</p>
+</div>
+
+<div class="card" id="refs">
+  <h2>REFERENCES</h2>
+  <ol class="refs">
+    <li>[1] Junyu Chen et al. <a href="https://arxiv.org/abs/2410.10733" target="_blank">Deep Compression Autoencoder for Efficient High-Resolution Diffusion Models</a>. <span class="ven">arXiv:2410.10733, 2024.</span></li>
+    <li>[2] Yuehao Liu et al. <a href="https://arxiv.org/abs/2605.14948" target="_blank">ACE-LoRA: Adaptive Orthogonal Decoupling for Continual Image Editing</a> (introduces CIE-Bench). <span class="ven">arXiv:2605.14948, 2026.</span></li>
+    <li>[3] Edward J. Hu et al. <a href="https://arxiv.org/abs/2106.09685" target="_blank">LoRA: Low-Rank Adaptation of Large Language Models</a>. <span class="ven">ICLR 2022.</span></li>
+    <li>[4] Quanhao Li et al. <a href="https://arxiv.org/abs/2605.15055" target="_blank">DiffusionOPD: A Unified Perspective of On-Policy Distillation in Diffusion Models</a>. <span class="ven">arXiv:2605.15055, 2026.</span></li>
+    <li>[5] Yuehao Liu et al. <a href="https://arxiv.org/abs/2605.14938" target="_blank">Octopus: History-Free Gradient Orthogonalization for Continual Learning</a>. <span class="ven">CVPR 2026.</span></li>
+    <li>[6] Kaiwen Zheng et al. <a href="https://arxiv.org/abs/2509.16117" target="_blank">DiffusionNFT: Online Diffusion Reinforcement with Forward Process</a>. <span class="ven">arXiv:2509.16117, 2025.</span></li>
+    <li>[7] Yuval Kirstain et al. <a href="https://arxiv.org/abs/2305.01569" target="_blank">Pick-a-Pic: An Open Dataset of User Preferences for Text-to-Image Generation</a>. <span class="ven">NeurIPS 2023.</span></li>
+    <li>[8] Zhizhou Chen et al. <a href="https://arxiv.org/abs/2605.23518" target="_blank">VINS-120K: Ultra High-Resolution Image Editing with a Large-Scale Dataset</a> (VINS-4KEval benchmark). <span class="ven">CVPR 2026.</span></li>
+    <li>[9] Yang Ye et al. <a href="https://arxiv.org/abs/2505.20275" target="_blank">ImgEdit: A Unified Image Editing Dataset and Benchmark</a>. <span class="ven">arXiv:2505.20275, 2025.</span></li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>BIBTEX <button class="copybtn" id="copybib">⧉ COPY</button></h2>
+  <pre class="bib" id="bibtex">@article{bluepixel2026,
+  title  = {BluePixel: Toward Native 4K Agentic Image Editing},
+  author = {Guan, Shanyan and Li, Shiyu and Li, Xin and Chen, Zhizhou and
+            Xu, Yunzhe and Liu, Yuehao and Shen, Ruixue and Zhang, Shiju and
+            Jin, Min and Liu, Qiang and Liu, Junbo and Shi, Penggang and Sun, Sheng and
+            Wang, Xiao and Zhang, Yong and Qi, Zhongang and Li, Wei and
+            Ma, Chao and Tai, Ying and Ge, Yanhao},
+  journal= {arXiv preprint},  % TODO: fill in arXiv id when available
+  year   = {2026}
+}</pre>
+</div>
+
+<footer id="foot">
+  Built with <span class="heart" id="heart">♥</span> and far too many pixels<span class="blink">▌</span><br>
+  <span style="font-size:18px">BluePixel Team @ vivo — try it: coming soon</span><br>
+  <span style="font-size:16px; opacity:.7">psst… try the Konami code</span>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 8-bit sound (opt-in) ---------- */
+  var soundOn = localStorage.getItem('bpx-sound') === '1', AC = null;
+  var sndbtn = document.getElementById('sndbtn');
+  function draw(){ sndbtn.textContent = soundOn ? '🔊' : '🔇'; }
+  draw();
+  sndbtn.addEventListener('click', function(){
+    soundOn = !soundOn; localStorage.setItem('bpx-sound', soundOn?'1':'0'); draw();
+    if (soundOn) { beep(660,.07); setTimeout(function(){ beep(990,.09); }, 90); }
+  });
+  function beep(f, d, v){
+    if (!soundOn) return;
+    try {
+      AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+      var o = AC.createOscillator(), g = AC.createGain();
+      o.type='square'; o.frequency.value=f||440; g.gain.value=v||0.028;
+      o.connect(g); g.connect(AC.destination); o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + (d||0.06));
+      o.stop(AC.currentTime + (d||0.06));
+    } catch(e){}
+  }
+  function jingle(){ beep(660,.07); setTimeout(function(){beep(880,.07);},90); setTimeout(function(){beep(1320,.12);},190); }
+  document.querySelectorAll('a.btn, .lvl, .copybtn, .vchip').forEach(function(el){
+    el.addEventListener('mouseenter', function(){ beep(520,.03,.018); });
+    el.addEventListener('click', function(){ beep(880,.05); });
+  });
+
+  /* ---------- toasts ---------- */
+  var toasts = document.getElementById('toasts');
+  var unlocked = {};
+  function toast(title, sub, key){
+    if (key) { if (unlocked[key]) return; unlocked[key] = 1; }
+    var t = document.createElement('div'); t.className='toast';
+    t.innerHTML = title + (sub ? '<small>'+sub+'</small>' : '');
+    toasts.appendChild(t); jingle();
+    setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .4s steps(4)'; }, 3400);
+    setTimeout(function(){ t.remove(); }, 3900);
+  }
+
+  /* ---------- mascot ---------- */
+  var mascot = document.getElementById('mascot');
+  var eyeL = document.getElementById('eyeL'), eyeR = document.getElementById('eyeR');
+  var sky = document.getElementById('sky');
+  document.addEventListener('mousemove', function(e){
+    if (reduced) return;
+    var r = mascot.getBoundingClientRect();
+    var cx = r.left + r.width*0.20, cy = r.top + r.height*0.42;
+    var dx = e.clientX - cx, dy = e.clientY - cy;
+    var m = Math.max(6, Math.hypot(dx,dy));
+    var ox = (dx/m)*0.55, oy = (dy/m)*0.55;
+    eyeL.setAttribute('transform','translate('+ox+','+oy+')');
+    eyeR.setAttribute('transform','translate('+ox+','+oy+')');
+  });
+  var bursts = 0;
+  mascot.addEventListener('click', function(e){
+    mascot.classList.remove('jump'); void mascot.offsetWidth; mascot.classList.add('jump');
+    beep(740,.06);
+    var r = sky.getBoundingClientRect();
+    for (var i=0;i<10;i++){
+      var s = document.createElement('span'); s.className='burst';
+      var cols=['#ffd700','#4a9eda','#e84855','#38b764','#a8d8ff'];
+      s.style.background = cols[i%5];
+      s.style.left = (e.clientX-r.left)+'px'; s.style.top = (e.clientY-r.top)+'px';
+      sky.appendChild(s);
+      var ang = Math.random()*Math.PI*2, d = 40+Math.random()*60;
+      (function(s,ang,d){
+        requestAnimationFrame(function(){
+          s.style.transform = 'translate('+Math.cos(ang)*d+'px,'+(Math.sin(ang)*d-30)+'px)';
+          s.style.opacity = '0';
+        });
+        setTimeout(function(){ s.remove(); }, 650);
+      })(s,ang,d);
+    }
+    if (++bursts===3) toast('POKE MASTER +20','the slime acknowledges you','poke');
+  });
+
+  /* ---------- reusable compare slider ---------- */
+  function makeCompare(cfg){
+    var lvls = document.getElementById(cfg.root+'Lvls'),
+        cmp = document.getElementById(cfg.root+'Cmp'),
+        bad = document.getElementById(cfg.root+'Bad'),
+        goodWrap = document.getElementById(cfg.root+'Good'),
+        goodImg = document.getElementById(cfg.root+'GoodImg'),
+        handle = document.getElementById(cfg.root+'Handle'),
+        afterTag = document.getElementById(cfg.root+'AfterTag');
+    var dragging = false, swept = false;
+    bad.addEventListener('load', function(){
+      cmp.style.aspectRatio = bad.naturalWidth + '/' + bad.naturalHeight;
+    });
+    function setX(p){
+      p = Math.max(0, Math.min(100, p));
+      goodWrap.style.width = p+'%'; handle.style.left = p+'%';
+      if (cfg.onSweep && p > cfg.onSweep.at && !swept){ swept = true; cfg.onSweep.fn(); }
+    }
+    function fromEvent(e){
+      var r = cmp.getBoundingClientRect();
+      var x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+      setX(x / r.width * 100);
+    }
+    cmp.addEventListener('pointerdown', function(e){ dragging=true; cmp.setPointerCapture(e.pointerId); fromEvent(e); });
+    cmp.addEventListener('pointermove', function(e){ if(dragging) fromEvent(e); });
+    cmp.addEventListener('pointerup', function(){ dragging=false; });
+    cmp.addEventListener('pointercancel', function(){ dragging=false; });
+    function select(t){
+      bad.src = t.b; goodImg.src = t.a; setX(cfg.startX || 14);
+      if (afterTag && t.afterLabel) afterTag.textContent = t.afterLabel;
+      if (cfg.onSelect) cfg.onSelect(t);
+    }
+    if (lvls){
+      cfg.tabs.forEach(function(t){
+        var b = document.createElement('button'); b.className='lvl'; b.textContent=t.name;
+        b.addEventListener('click', function(){
+          lvls.querySelectorAll('.lvl').forEach(function(x){x.classList.remove('on');});
+          b.classList.add('on'); select(t);
+        });
+        lvls.appendChild(b);
+      });
+      lvls.firstChild.classList.add('on');
+    }
+    select(cfg.tabs[0]);
+    return { select: select };
+  }
+
+  /* ---------- STAGE 1: phase slider ---------- */
+  makeCompare({
+    root:'ph', startX:50,
+    tabs:[
+      {name:'GIRAFFE \u2192 ELEPHANT', b:'img/ph1_giraffe_p1.jpg', a:'img/ph1_giraffe_fin.jpg'},
+      {name:'GREVE STENCIL',           b:'img/ph1_greve_p1.jpg',   a:'img/ph1_greve_fin.jpg'},
+      {name:'BEACH DAY',               b:'img/ph1_beach_p1.jpg',   a:'img/ph1_beach_fin.jpg'}
+    ]
+  });
+
+  /* ---------- STAGE 5: benchmark slider + field chips ---------- */
+  var BM_LEVELS = [
+    {name:'LEVEL 1 · HORSE COMPOUND EDIT', before:'img/main_horse_in.jpg', after:'img/main_horse_out.jpg'},
+    {name:'LEVEL 2 · BORED EXPRESSION',    before:'img/main_expr_in.jpg',  after:'img/main_expr_out.jpg'},
+    {name:'LEVEL 3 · VINYL SHOP SIGN',     before:'img/main_sign_in.jpg',  after:'img/main_sign_out.jpg'}
+  ];
+  var MODELS = [
+    ['GPT IMAGE 2','gpt'], ['NANO BANANA PRO','nbp'], ['NANO BANANA 2.0','nb2'],
+    ['SEEDREAM 5.0 LITE','seed'], ['WAN 2.7 PRO','wan'], ['KLING','kling']
+  ];
+  function cmpImg(L, key){ return L.before.replace(/in\.jpg$/, key+'.jpg').replace('main_','cmp_'); }
+  var vschips = document.getElementById('vschips');
+  function buildChips(L){
+    vschips.innerHTML = '';
+    var bp = document.createElement('button');
+    bp.className='vchip gold on'; bp.textContent='BLUEPIXEL';
+    bp.addEventListener('click', function(){
+      vschips.querySelectorAll('.vchip').forEach(function(x){x.classList.remove('on');});
+      bp.classList.add('on');
+      document.getElementById('bmGoodImg').src = L.after;
+      document.getElementById('bmAfterTag').textContent = 'AFTER · BLUEPIXEL';
+      beep(880,.05);
+    });
+    vschips.appendChild(bp);
+    MODELS.forEach(function(M){
+      var c = document.createElement('button');
+      c.className='vchip'; c.textContent = M[0];
+      c.addEventListener('click', function(){
+        vschips.querySelectorAll('.vchip').forEach(function(x){x.classList.remove('on');});
+        c.classList.add('on');
+        document.getElementById('bmGoodImg').src = cmpImg(L, M[1]);
+        document.getElementById('bmAfterTag').textContent = 'AFTER · ' + M[0];
+        beep(880,.05);
+      });
+      vschips.appendChild(c);
+    });
+  }
+  makeCompare({
+    root:'bm', startX:14,
+    tabs: BM_LEVELS.map(function(L){
+      return {name:L.name, b:L.before, a:L.after, afterLabel:'AFTER · BLUEPIXEL', _L:L};
+    }),
+    onSelect:function(t){ buildChips(t._L); }
+  });
+
+  /* ---------- bars ---------- */
+  var io = new IntersectionObserver(function(es){ es.forEach(function(e){
+    if (e.isIntersecting){ e.target.classList.add('fill'); io.unobserve(e.target); }
+  }); }, {threshold:.4});
+  document.querySelectorAll('.bar').forEach(function(b){ io.observe(b); });
+
+  /* ---------- scroll achievements ---------- */
+  new IntersectionObserver(function(es,obs){ es.forEach(function(e){
+    if (e.isIntersecting){ toast('LORE UNLOCKED +50','you actually read the references','refs'); obs.disconnect(); }
+  }); }, {threshold:.3}).observe(document.getElementById('refs'));
+  new IntersectionObserver(function(es,obs){ es.forEach(function(e){
+    if (e.isIntersecting){ toast('STAGE CLEAR +100','thanks for scrolling to the end','foot'); obs.disconnect(); }
+  }); }, {threshold:.4}).observe(document.getElementById('foot'));
+
+  /* ---------- BibTeX copy ---------- */
+  document.getElementById('copybib').addEventListener('click', function(){
+    var txt = document.getElementById('bibtex').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+      .then(function(){ toast('BIBTEX COPIED +10','cite responsibly','bib'); })
+      .catch(function(){ toast('SELECT & COPY','clipboard blocked by browser','bib'); });
+  });
+
+  /* ---------- Konami code ---------- */
+  var SEQ = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+  var pos = 0, crtOn = false;
+  document.addEventListener('keydown', function(e){
+    var k = e.key.length===1 ? e.key.toLowerCase() : e.key;
+    pos = (k === SEQ[pos]) ? pos+1 : (k === SEQ[0] ? 1 : 0);
+    if (pos === SEQ.length){
+      pos = 0; crtOn = !crtOn;
+      document.body.classList.toggle('crt', crtOn);
+      if (crtOn){
+        toast('CHEAT CODE +100','CRT mode ON — ↑↑↓↓←→←→BA to exit','konami');
+        var parade = document.createElement('div'); parade.className='parade'; document.body.appendChild(parade);
+        for (var i=0;i<6;i++){
+          var s = document.createElement('span');
+          s.innerHTML = '<svg width="44" height="40" viewBox="0 0 14 12"><g transform="translate(0,0)"><rect x="1" y="0" width="12" height="9" fill="#4a9eda"/><rect x="0" y="2" width="14" height="6" fill="#4a9eda"/><rect x="3" y="3" width="2" height="3" fill="#141625"/><rect x="9" y="3" width="2" height="3" fill="#141625"/><rect x="5" y="7" width="3" height="1" fill="#141625"/></g></svg>';
+          s.style.left = (-120 - i*90) + 'px';
+          s.style.animationDelay = (i*0.7)+'s';
+          parade.appendChild(s);
+        }
+        setTimeout(function(){ parade.remove(); }, 12000);
+      } else { toast('CRT OFF','back to reality','konami-off'); }
+    }
+  });
+
+  /* ---------- footer heart ---------- */
+  var hearts = 0;
+  document.getElementById('heart').addEventListener('click', function(){
+    if (++hearts === 5) toast('FULL HEART +1UP','you poked the heart five times. legend.','heart');
+    beep(1040,.06);
+  });
+})();
+</script>
+</body>
+</html>
