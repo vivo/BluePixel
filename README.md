@@ -162,7 +162,7 @@ The model is trained based on [Flux 2 Klein](https://blackforestlabs.ai/). The o
 | **Preparation** | 4K resolution adaptation | DCAE-F64 + progressive compression migration (f=8 → 32 → 64) |
 | **Enhancement SFT** | Editing quality improvement | Progressive resolution SFT + benchmark-driven tuning + ACE-OPD |
 | **RL** | Aesthetic and instruction alignment | Two-stage DiffusionNFT optimization |
-| **Distillation** | Faster inference | Background-Anchored Step Distillation |
+| **Distillation** | Faster inference | Source-Anchored Target Projection (SATP) |
 
 ### Preparation: 4K Resolution Adaptation
 
@@ -193,7 +193,7 @@ Optimize in two stages based on **DiffusionNFT**:
 
 ### Distillation: Inference Step Distillation
 
-Compress the 50-step teacher into a **4-step student** via background-anchored step distillation:
+Compress the 50-step teacher into a **4-step student** via source-anchored target projection (SATP):
 
 - Anchor non-edited regions to the source latent to ensure background consistency;
 - 4K editing takes only about **8.7 seconds** on a single Kunlunxin P800 XPU;
