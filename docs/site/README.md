@@ -1,23 +1,19 @@
 # BluePixel — Project Page
 
-Official project page for **BluePixel: Toward Native 4K Agentic Image Editing**.
+Official project page: <https://tech.vivo.com/BluePixel/>
 
-Live at: `https://vivo.github.io/BluePixel/` (once GitHub Pages is enabled)
+Paper: <https://arxiv.org/abs/2610.19882>
 
-## Deploy layout
+## Source layout
 
-- Site files live in `docs/` — GitHub Pages deploys directly from `main` + `/docs`.
-- `docs/.nojekyll` disables Jekyll processing.
-- Visitor analytics: a GoatCounter snippet is prepared (commented) in `docs/index.html` `<head>`.
+- `docs/index.html` and `docs/img/` are the canonical site sources.
+- `docs/site/docs/` is a standalone copy for separate static hosting. Keep its HTML and referenced images synchronized with the canonical sources.
+- `docs/.nojekyll` and `docs/site/docs/.nojekyll` disable Jekyll processing when using GitHub Pages.
+- Hosting the sources does not configure or change the canonical domain. See [deployment notes](../DEPLOY.md).
 
-## Enable GitHub Pages (one-time, needs repo admin)
+## Before deployment
 
-1. Repo **Settings → Pages**
-2. Source: **Deploy from a branch** → Branch: `main` → Folder: **`/docs`**
-3. Save. Site goes live at `https://vivo.github.io/BluePixel/` in ~1 minute.
-
-## TODO after going live
-
-- [ ] PAPER button + BibTeX: fill in the arXiv id
-- [ ] Waitlist button: point at the registration / survey URL
-- [ ] GoatCounter: register, uncomment the snippet, re-push
+- Check that every image referenced by HTML and inline JavaScript exists under the selected source directory.
+- Keep the PAPER link and BibTeX aligned with arXiv:2610.19882.
+- Replace the waitlist placeholder only when a registration URL is available.
+- GoatCounter remains disabled; its snippet is commented out in both HTML copies.

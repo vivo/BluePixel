@@ -588,7 +588,11 @@ def paths_for_key(out_dir: Path, key: str):
 
 
 def is_done(done_path: Path) -> bool:
-    return done_path.exists()
+    try:
+        with done_path.open(encoding="utf-8") as f:
+            return json.load(f).get("status") == "success"
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def load_done_snapshot(out_dir: Path, worker_id: str = "") -> set[str]:
@@ -597,7 +601,7 @@ def load_done_snapshot(out_dir: Path, worker_id: str = "") -> set[str]:
     t0 = time.time()
     try:
         for entry in os.scandir(done_dir):
-            if entry.name.endswith(".done"):
+            if entry.name.endswith(".done") and is_done(Path(entry.path)):
                 keys.add(entry.name[:-len(".done")])
     except OSError as e:
         print(f"[{worker_id}] warning 读取 _done 快照失败，回退逐条检查: {e}")
@@ -712,6 +716,8 @@ def load_done_tasks(metadata_path: Path) -> set[str]:
                 rec = json.loads(line)
                 if rec.get("status") == "success":
                     done.add(rec["task_id"])
+                elif rec.get("status") == "failed":
+                    done.discard(rec["task_id"])
             except (json.JSONDecodeError, KeyError):
                 continue
     return done
@@ -803,9 +809,13 @@ def main() -> None:
         tid = task_id(sample, seed, args.instruction_field)
         lock_path, done_path = paths_for_key(out_dir, tid)
 
-        if is_done(done_path):
+        if args.resume and is_done(done_path):
             continue
         if not try_acquire_lock(lock_path, args.lock_timeout):
+            continue
+        # A worker may have completed the task after our initial status check.
+        if args.resume and is_done(done_path):
+            release_lock(lock_path)
             continue
 
         instruction = sample[args.instruction_field]

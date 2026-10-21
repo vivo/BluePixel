@@ -4,7 +4,7 @@
 
 **原生 4K 图像编辑模型，基于 Flux 2 Klein 与 DCAE**
 
-🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-1.0/) • 📜 [Apache 2.0 License](LICENSE) • [English](README.md)
+▶ [在线体验](https://bluepixel.vivo.com.cn/bluepixel-model) • 🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-Turbo/) • [论文](https://arxiv.org/abs/2610.19882) • 📜 [Apache 2.0 License](LICENSE) • [English](README.md)
 
 </div>
 
@@ -14,14 +14,15 @@
 
 BluePixelModel 的四大核心特点：
 
-- **原生 4K 直出** — 输入输出均为 4096×4096，无需级联超分或其他后处理。
-- **4 步快速推理** — 通过 background-anchored step distillation 将 50 步教师模型压缩为 4 步学生模型。
+- **原生 4K 直出** — 支持 4096×4096 方形输出，无需级联超分；非方形图片按目标像素预算近似保持原始宽高比。
+- **4 步推理** — 通过源锚定目标投影（Source-Anchored Target Projection，SATP），从 50 步教师模型蒸馏得到。
 - **高效 4K 训练** — 使用 DCAE-F64（f=64）将 4K 图像的 DiT token 数控制在 1K 级别，32 张 Kunlunxin XPU 上 4 天完成初始 4K 适配。
 - **持续学习能力** — 通过 ACE-LoRA + OPD 吸收长尾垂类编辑技能，避免任务干扰与灾难性遗忘。
 
 ## 新闻
 
-- 2026.10.13: BluePixelModel 推理代码与模型文档开源，权重下载敬请期待 [Hugging Face](https://huggingface.co/openvivo/BluePixel-1.0/)。
+- 模型权重：已发布的 4 步模型见 [BluePixel-Turbo](https://huggingface.co/openvivo/BluePixel-Turbo/)。
+- 2026.10.13: BluePixelModel 推理代码与模型文档开源。
 
 ## 快速开始
 
@@ -31,14 +32,23 @@ BluePixelModel 的四大核心特点：
 pip install -r requirements.txt
 ```
 
+运行示例前，下载完整模型：
+
+```bash
+hf download openvivo/BluePixel-Turbo --local-dir ./BluePixel-Turbo
+```
+
+使用支持 BF16 的 CUDA 环境。依赖范围对应 Diffusers 0.36 API，实际 GPU 推理需在部署环境验证。
+
 ### 单图编辑
 
 ```python
 import torch
+from PIL import Image
 from vins_infer import load_pipeline
 
 pipe = load_pipeline(
-    "BluePixel-1.0",
+    "BluePixel-Turbo",
     device="cuda",
     vae_tiling=False,
     lora_scale=None,
@@ -47,10 +57,12 @@ pipe = load_pipeline(
 )
 
 result = pipe(
-    image="input.png",
-    instruction="make the hair red",
+    image=Image.open("assets/test_input.jpg").convert("RGB"),
+    instruction="Change the gray sweater to burgundy red.",
     num_inference_steps=4,
     guidance_scale=3.0,
+    target_pixels=4096 * 4096,
+    generator=torch.Generator(device="cuda").manual_seed(42),
 ).images[0]
 
 result.save("output.jpg")
@@ -68,7 +80,7 @@ result.save("output.jpg")
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
-    --model-dir BluePixel-1.0 \
+    --model-dir BluePixel-Turbo \
     --jsonl /path/to/your_tasks.jsonl \
     --out-dir ./output \
     --target-pixels 16777216 \
@@ -79,7 +91,7 @@ CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
     --instruction-field edit_prompt
 ```
 
-默认开启断点续传：重复运行会自动跳过已完成的任务（`--no-resume` 强制从头跑）。
+默认跳过成功任务，失败任务会重试。`--no-resume` 重新执行全部选中任务并覆盖对应输出图片，请使用单个 worker。切换模型或推理参数时，请使用新的输出目录。
 
 ### 推荐分辨率
 
@@ -108,7 +120,7 @@ target_pixels = {
 
 ```python
 pipe = load_pipeline(
-    "BluePixel-1.0", device="cuda", vae_tiling=True, mu_mode="empirical"
+    "BluePixel-Turbo", device="cuda", vae_tiling=True, mu_mode="empirical"
 )
 ```
 
@@ -137,7 +149,7 @@ pipe = load_pipeline(
 | `--limit` | int | `None` | 仅处理前 N 条任务 |
 | `--lock-timeout` | int | `1800` | 文件锁超时时间（秒） |
 | `--metadata-file` | str | `metadata.jsonl` | 输出元数据文件名 |
-| `--no-resume` | flag | `False` | 强制从头运行，不跳过已完成任务 |
+| `--no-resume` | flag | `False` | 重跑选中任务并覆盖输出（单 worker） |
 | `--dry-run` | flag | `False` | 只打印任务计划，不执行推理 |
 | `--check` | flag | `False` | 仅检查任务状态，不执行推理 |
 
@@ -150,7 +162,7 @@ pipe = load_pipeline(
 | **Preparation** | 4K 分辨率适配 | DCAE-F64 + 渐进式压缩迁移（f=8 → 32 → 64） |
 | **Enhancement SFT** | 编辑质量提升 | 渐进分辨率 SFT + Benchmark-driven 微调 + ACE-OPD |
 | **RL** | 美学与指令对齐 | DiffusionNFT 两阶段优化 |
-| **Distillation** | 加速推理 | Background-Anchored Step Distillation |
+| **Distillation** | 加速推理 | Source-Anchored Target Projection (SATP) |
 
 ### Preparation：4K 分辨率适配
 
@@ -181,11 +193,11 @@ pipe = load_pipeline(
 
 ### Distillation：推理步数蒸馏
 
-通过 background-anchored step distillation 将 50 步教师模型压缩为 **4 步学生模型**：
+通过源锚定目标投影（Source-Anchored Target Projection，SATP）将 50 步教师模型蒸馏为 **4 步学生模型**：
 
 - 非编辑区域锚定到 source latent，保证背景一致性；
 - 4K 编辑在单张 Kunlunxin P800 XPU 上仅需约 **8.7 秒**；
-- 相比 50 步教师实现约 **12× 推理加速**。
+- 相比 50 步教师实现约 **4× 推理加速**。
 
 ## 模型架构
 
@@ -248,8 +260,10 @@ BluePixelModel/
 ├── vins_infer.py                     # 批量推理脚本（支持断点续传、多进程文件锁）
 ├── run_vins_bench_v2.sh              # 单卡推理启动脚本（一键测试）
 ├── assets/
-│   ├── test_input.jpg                # 测试输入图像
-│   └── test_examples.jsonl           # 示例任务列表（3 条编辑指令）
+│   ├── test_input.jpg                # 夜景人像（毛衣改色）
+│   ├── test_hiking.jpg               # 户外人像（外套改色）
+│   ├── test_forest.jpg               # 林间人像（帽子改色）
+│   └── test_examples.jsonl           # 示例任务列表（3 张照片、3 条编辑指令）
 ├── README.md
 ├── README_CN.md
 └── LICENSE
@@ -284,7 +298,7 @@ BluePixelModel/
 @misc{2026bluepixelmodel,
     title={BluePixelModel: 4K Resolution Image Editing via Flux 2 Klein with DCAE},
     author={BluePixelModel Team},
-    howpublished = {\url{https://github.com/<org>/BluePixelModel}},
+    howpublished = {\url{https://github.com/vivo/BluePixel}},
     year={2026}
 }
 ```

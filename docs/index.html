@@ -7,6 +7,7 @@
 <meta property="og:title" content="BluePixel: Toward Native 4K Agentic Image Editing">
 <meta property="og:description" content="A native 4K editing model + an agent framework — complete training recipe disclosed. 4K edit in 8.7s on a single XPU.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://tech.vivo.com/BluePixel/">
 <meta property="og:image" content="img/main_sign_out.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%234a9eda'/%3E%3Crect x='2' y='3' width='1' height='2' fill='%23141625'/%3E%3Crect x='5' y='3' width='1' height='2' fill='%23141625'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -118,37 +119,43 @@
   .phase p { color:var(--ink); font-size:20px; }
   .arrow { text-align:center; color:var(--gold); font-size:26px; }
 
-  /* sliders (reusable) */
-  .lvl-btns { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
-  .lvl { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--ink);
-    background:var(--panel2); border:3px solid var(--border); box-shadow:0 4px 0 var(--border);
-    padding:8px 10px; cursor:pointer; position:relative; top:0; transition:all .06s steps(1); }
-  .lvl:hover { top:2px; box-shadow:0 2px 0 var(--border); }
+  /* Showcase: full images first, optional synchronized detail inspection. */
+  .lvl-btns { display:flex; gap:10px; flex-wrap:wrap; margin:18px 0 14px; }
+  .lvl { font-family:'Press Start 2P',monospace; font-size:9px; line-height:1.7; color:var(--ink); background:var(--panel2); border:3px solid var(--border); box-shadow:0 4px 0 var(--border); padding:9px 12px; cursor:pointer; }
   .lvl.on { background:var(--blue-dark); color:var(--gold); }
-  .compare { position:relative; overflow:hidden; border:4px solid var(--border); box-shadow:0 5px 0 var(--border);
-    cursor:ew-resize; user-select:none; touch-action:none; background:#fff; aspect-ratio:3/2; max-height:620px; margin:0 auto; }
-  .compare img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; pointer-events:none; }
-  .compare .good { position:absolute; top:0; left:0; height:100%; width:14%; overflow:hidden; border-right:4px solid var(--gold); }
-  .compare .handle { position:absolute; top:50%; left:14%; transform:translate(-50%,-50%);
-    width:52px; height:52px; background:var(--gold); border:4px solid var(--border);
-    box-shadow:0 4px 0 var(--border); display:flex; align-items:center; justify-content:center;
-    font-size:22px; pointer-events:none; }
-  .tagchip { position:absolute; top:10px; font-family:'Press Start 2P',monospace; font-size:9px; padding:6px 8px; border:3px solid var(--border); z-index:3; }
-  .tag-bad { right:10px; background:var(--red); color:#fff; }
-  .tag-good { left:10px; background:var(--green); color:#fff; }
-  .tag-warn { left:10px; background:#c98a00; color:#fff; }
-  .arcade-hint { color:var(--dim); font-size:19px; margin-top:10px; }
-
-  /* compare-the-field chips */
-  .vsline { margin-top:14px; display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
-  .vslbl { font-family:'Press Start 2P',monospace; font-size:9px; color:var(--blue-light); padding-top:7px; white-space:nowrap; }
-  .vschips { display:flex; gap:8px; flex-wrap:wrap; }
-  .vchip { font-family:'VT323',monospace; font-size:19px; color:var(--ink); cursor:pointer;
-    background:var(--panel2); border:3px solid var(--border); box-shadow:0 3px 0 var(--border);
-    padding:4px 10px; position:relative; top:0; transition:all .06s steps(1); }
-  .vchip:hover { top:2px; box-shadow:0 1px 0 var(--border); }
-  .vchip.gold { color:var(--gold); }
-  .vchip.on { background:var(--blue-dark); color:#fff; }
+  .showcase-prompt { margin:0 0 18px; padding:14px 16px; background:#20243a; border-left:4px solid var(--gold); font-size:22px; line-height:1.4; }
+  .showcase-prompt span { display:block; margin-bottom:7px; color:var(--gold); font-family:'Press Start 2P',monospace; font-size:9px; }
+  .showcase-lead, .showcase-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .showcase-frame { margin:0; min-width:0; border:3px solid var(--border); background:#141625; }
+  .showcase-frame figcaption { display:flex; justify-content:space-between; gap:8px; padding:10px 12px; font-size:20px; color:var(--dim); }
+  .showcase-frame.featured { border-color:var(--blue); }
+  .showcase-frame.featured figcaption { color:var(--blue-light); }
+  .showcase-frame img, .model-result img { display:block; width:100%; aspect-ratio:3/2; object-fit:contain; background:#141625; }
+  .showcase-section-title { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin:24px 0 12px; }
+  .showcase-section-title h3 { font-family:'Press Start 2P',monospace; font-size:10px; line-height:1.8; color:var(--blue-light); }
+  .showcase-section-title p { color:var(--dim); font-size:19px; }
+  .model-results { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+  .model-result { min-width:0; padding:0; border:3px solid var(--border); background:#20243a; color:var(--ink); cursor:pointer; text-align:left; transition:border-color .12s; }
+  .model-result:hover, .model-result[aria-pressed="true"] { border-color:var(--blue-light); }
+  .model-result .model-label { display:block; padding:10px; font-family:'VT323',monospace; font-size:20px; }
+  .model-result .compare-action { display:block; padding:0 10px 10px; color:var(--dim); font-family:'VT323',monospace; font-size:17px; }
+  .showcase-detail { margin-top:22px; padding:16px; border:3px solid var(--blue); background:#20243a; }
+  .showcase-detail[hidden] { display:none; }
+  .showcase-detail-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+  .showcase-detail-head h3 { color:var(--blue-light); font-size:23px; }
+  .detail-close { padding:4px 10px; background:var(--panel2); border:2px solid var(--border); color:var(--ink); font:20px 'VT323',monospace; cursor:pointer; }
+  .detail-viewport { overflow:hidden; cursor:crosshair; }
+  .detail-viewport img { transform-origin:50% 50%; }
+  .detail-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:14px 0 8px; color:var(--dim); font-size:20px; }
+  .detail-controls input { flex:1; min-width:100px; max-width:260px; accent-color:var(--blue-light); }
+  .lvl:focus-visible, .model-result:focus-visible, .detail-close:focus-visible { outline:3px solid var(--gold); outline-offset:4px; }
+  @media (max-width:640px) {
+    .showcase-lead, .showcase-detail-grid { grid-template-columns:1fr; }
+    .model-results { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .model-result .model-label { font-size:17px; padding:8px; }
+    .model-result .compare-action { font-size:16px; padding:0 8px 8px; }
+    .showcase-detail { padding:10px; }
+  }
 
   /* pair grids */
   .pairgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
@@ -284,13 +291,10 @@
     <div class="authors"><b>Shanyan Guan</b>, Shiyu Li, Xin Li, Zhizhou Chen, Yunzhe Xu, Yuehao Liu, Ruixue Shen, Shiju Zhang, Min Jin, Qiang Liu, Junbo Liu, Penggang Shi, Sheng Sun, Xiao Wang, Yong Zhang, Zhongang Qi, Wei Li, Chao Ma, Ying Tai, Yanhao Ge — <b>vivo</b></div>
 
     <div class="btnrow">
-      <!-- TODO: replace with the waitlist / survey registration URL when it is live -->
-      <a class="btn demo" href="#" title="waitlist for the online demo — registration opens soon">▶ DEMO <b>WAITLIST</b><span style="font-size:8px; color:var(--gold)"> ·SOON</span></a>
-      <a class="btn paper" href="#" title="arXiv link placeholder">📕 <b>PAPER</b></a>
-      <!-- TODO: replace with the final repository URL when it is live -->
-      <a class="btn" href="#" title="repository link coming soon"><svg width="15" height="15" viewBox="0 0 16 16" style="vertical-align:-2px" aria-label="GitHub"><path fill="#f4f4f4" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> <b>CODE</b><span style="font-size:8px; color:var(--gold)"> ·SOON</span></a>
-      <a class="btn" href="https://huggingface.co/openvivo" target="_blank">🤗 <b>MODEL</b></a>
-      <a class="btn" href="https://modelscope.cn/organization/vivo" target="_blank"><svg width="17" height="13" viewBox="0 0 7 5" style="vertical-align:-2px" aria-label="ModelScope"><g fill="#5a6ff0"><rect x="0" y="0" width="1" height="5"/><rect x="6" y="0" width="1" height="5"/><rect x="1" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/></g></svg> <b>MODELSCOPE</b></a>
+      <a class="btn demo" href="https://bluepixel.vivo.com.cn/bluepixel-model" target="_blank" rel="noopener" title="Try BluePixel image editing">▶ <b>DEMO</b></a>
+      <a class="btn paper" href="https://arxiv.org/abs/2610.19882" target="_blank" rel="noopener" title="BluePixel paper on arXiv">📕 <b>PAPER</b></a>
+      <a class="btn" href="https://github.com/vivo/BluePixel" target="_blank" rel="noopener" title="GitHub repository"><svg width="15" height="15" viewBox="0 0 16 16" style="vertical-align:-2px" aria-label="GitHub"><path fill="#f4f4f4" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> <b>CODE</b></a>
+      <a class="btn" href="https://huggingface.co/openvivo/BluePixel-Turbo" target="_blank" rel="noopener">🤗 <b>MODEL</b></a>
     </div>
   </div>
 </header>
@@ -309,6 +313,64 @@
   <div class="stat"><div class="num"><em>1st</em></div><div class="lbl">Hybrid &amp; Action on ImgEdit-Bench (tied 1st on Add)</div></div>
 </div>
 
+<!-- ============ SHOWCASE ============ -->
+<section class="card" id="showcase" aria-labelledby="showcase-title">
+  <h2 id="showcase-title"><span class="stg">SHOWCASE</span> EDITING RESULTS &amp; MODEL COMPARISON 🎚</h2>
+  <div class="sub">One instruction, the same input, seven editing models. View the complete results, then select a model to compare details with BluePixel.</div>
+  <div class="lvl-btns" id="showcaseCases" role="group" aria-label="Editing examples">
+    <button type="button" class="lvl on" aria-pressed="true">01 · COMPOUND EDIT</button>
+    <button type="button" class="lvl" aria-pressed="false">02 · EXPRESSION</button>
+    <button type="button" class="lvl" aria-pressed="false">03 · TEXT STYLE</button>
+  </div>
+  <p class="showcase-prompt"><span>EDITING INSTRUCTION</span><span id="showcasePrompt" style="font:inherit;color:inherit;margin:0" aria-live="polite">Zoom in on the man and horse, change the white shirt to a dark brown tunic, and swap the saddle pad for red leather.</span></p>
+  <div class="showcase-lead">
+    <figure class="showcase-frame">
+      <figcaption>INPUT IMAGE <span>Original</span></figcaption>
+      <img id="showcaseInput" src="img/main_horse_in.jpg" alt="Original image for the compound editing example" loading="lazy">
+    </figure>
+    <figure class="showcase-frame featured">
+      <figcaption>BLUEPIXEL <span>Edited result</span></figcaption>
+      <img id="showcaseBluePixel" src="img/main_horse_out.jpg" alt="BluePixel result for the compound editing example" loading="lazy">
+    </figure>
+  </div>
+  <div class="showcase-section-title"><h3>OTHER MODELS · SAME INSTRUCTION</h3><p>Select a result to compare with BluePixel ↓</p></div>
+  <div class="model-results" id="modelResults">
+    <button type="button" class="model-result" data-model="gpt" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare GPT IMAGE 2 with BluePixel">
+      <img src="img/cmp_horse_gpt.jpg" alt="GPT IMAGE 2 editing result" loading="lazy">
+      <span class="model-label">GPT IMAGE 2</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+    <button type="button" class="model-result" data-model="nbp" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare NANO BANANA PRO with BluePixel">
+      <img src="img/cmp_horse_nbp.jpg" alt="NANO BANANA PRO editing result" loading="lazy">
+      <span class="model-label">NANO BANANA PRO</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+    <button type="button" class="model-result" data-model="nb2" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare NANO BANANA 2.0 with BluePixel">
+      <img src="img/cmp_horse_nb2.jpg" alt="NANO BANANA 2.0 editing result" loading="lazy">
+      <span class="model-label">NANO BANANA 2.0</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+    <button type="button" class="model-result" data-model="seed" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare SEEDREAM 5.0 LITE with BluePixel">
+      <img src="img/cmp_horse_seed.jpg" alt="SEEDREAM 5.0 LITE editing result" loading="lazy">
+      <span class="model-label">SEEDREAM 5.0 LITE</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+    <button type="button" class="model-result" data-model="wan" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare WAN 2.7 PRO with BluePixel">
+      <img src="img/cmp_horse_wan.jpg" alt="WAN 2.7 PRO editing result" loading="lazy">
+      <span class="model-label">WAN 2.7 PRO</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+    <button type="button" class="model-result" data-model="kling" aria-pressed="false" aria-controls="showcaseDetail" aria-expanded="false" aria-label="Compare KLING with BluePixel">
+      <img src="img/cmp_horse_kling.jpg" alt="KLING editing result" loading="lazy">
+      <span class="model-label">KLING</span><span class="compare-action">Compare with BluePixel ↗</span>
+    </button>
+  </div>
+  <section class="showcase-detail" id="showcaseDetail" aria-labelledby="detailTitle" hidden>
+    <div class="showcase-detail-head"><h3 id="detailTitle" tabindex="-1">BluePixel vs. GPT IMAGE 2</h3><button type="button" class="detail-close" id="closeDetail">Close ×</button></div>
+    <div class="showcase-detail-grid">
+      <figure class="showcase-frame featured"><figcaption>BLUEPIXEL</figcaption><div class="detail-viewport"><img id="detailBluePixel" src="img/main_horse_out.jpg" alt="BluePixel comparison image" loading="lazy"></div></figure>
+      <figure class="showcase-frame"><figcaption id="detailModelName">GPT IMAGE 2</figcaption><div class="detail-viewport"><img id="detailOther" src="img/cmp_horse_gpt.jpg" alt="Selected model comparison image" loading="lazy"></div></figure>
+    </div>
+    <div class="detail-controls"><label for="detailZoom">Zoom both images</label><input id="detailZoom" type="range" min="1" max="3" step="0.25" value="1"><output id="detailZoomValue" for="detailZoom">1×</output></div>
+    <p class="caption">Move over either image to inspect the same relative area. Image framing may differ between models.</p>
+  </section>
+</section>
+
 <!-- ============ QUEST MAP ============ -->
 <div class="card">
   <h2>THE QUEST MAP 🗺</h2>
@@ -319,7 +381,7 @@
     <div class="phase"><h3>PHASE 2 ⚙ ENHANCE</h3>
       <p>Progressive SFT → benchmark-driven rebalancing → <b style="color:#a8d8ff">ACE-MOPD</b><sup class="cite"><a href="#refs">[2,4]</a></sup> continual learning (gradient-orthogonal LoRA<sup class="cite"><a href="#refs">[3,5]</a></sup>) → two-stage RL with DiffusionNFT<sup class="cite"><a href="#refs">[6]</a></sup> (PickScore<sup class="cite"><a href="#refs">[7]</a></sup>, then BluePixReward).</p></div>
     <div class="phase"><h3>PHASE 3 ⚙ ACCELERATE</h3>
-      <p><b style="color:#a8d8ff">Background-anchored distillation</b> compresses 50 steps to 4 while anchoring non-edited regions — keeping 4K fidelity at production latency.</p></div>
+      <p><b style="color:#a8d8ff">Source-anchored target projection</b> (SATP) compresses 50 steps to 4 while anchoring non-edited regions — keeping 4K fidelity at production latency.</p></div>
   </div>
   <div class="arrow" style="margin-top:8px">▼ then an agent takes over ▼</div>
   <div class="phase" style="margin-top:8px"><h3>BLUEPIXEL AGENT 🤖</h3>
@@ -327,18 +389,9 @@
 </div>
 
 <!-- ============ STAGE 1 ============ -->
-<div class="card">
+<div class="card" id="stage1">
   <h2><span class="stg">STAGE 1/4</span> INITIALIZE 4K ⚙</h2>
-  <div class="sub">Rewire a 1K editor for native 4K: DCAE-F64 + progressive 8→32→64 adaptation. <b>~4 days, 32 Kunlunxin XPUs, 200K samples.</b> Phase 1 already lands the edit — the later stages make it faithful and crisp. Drag the gear:</div>
-  <div class="lvl-btns" id="phLvls"></div>
-  <div class="compare" id="phCmp">
-    <img id="phBad" src="img/ph1_giraffe_p1.jpg" alt="Phase 1 output" draggable="false">
-    <div class="good" id="phGood"><img id="phGoodImg" src="img/ph1_giraffe_fin.jpg" alt="final output" draggable="false"></div>
-    <div class="handle" id="phHandle">⚙</div>
-    <span class="tagchip tag-warn">PHASE 1</span>
-    <span class="tagchip tag-good">FINAL · ALL STAGES</span>
-  </div>
-  <div class="arcade-hint">same instruction, same input — Phase 1 output vs the finished model.</div>
+  <div class="sub">Progressive VAE adaptation (8→32→64) aligns the new DCAE latents with the pretrained editor. Input projection distillation, interface calibration and light backbone adaptation produce an initial 4K model in ~4 days on 32 Kunlunxin XPUs with ~200K samples.</div>
 </div>
 
 <!-- ============ STAGE 2 ============ -->
@@ -356,7 +409,7 @@
 <!-- ============ STAGE 3 ============ -->
 <div class="card">
   <h2><span class="stg">STAGE 3/4</span> SHARPEN &amp; GO FAST ⚡</h2>
-  <div class="sub">Two-stage RL refines aesthetics and instruction fidelity. Then <b style="color:#a8d8ff">background-anchored distillation</b> cuts 50 denoising steps to 4 — anchoring non-edited regions so 4K fidelity survives.</div>
+  <div class="sub">Two-stage RL refines aesthetics and instruction fidelity. Then <b style="color:#a8d8ff">SATP</b> cuts 50 denoising steps to 4 — anchoring non-edited regions so 4K fidelity survives.</div>
   <div class="stats" style="margin-bottom:0">
     <div class="stat"><div class="num">50 → <em>4</em></div><div class="lbl">denoising steps</div></div>
     <div class="stat"><div class="num"><em>~4×</em></div><div class="lbl">inference speedup</div></div>
@@ -415,21 +468,6 @@
   </div>
 </div>
 
-<!-- ============ STAGE 5 (benchmarks) ============ -->
-<div class="card">
-  <h2><span class="stg">BONUS</span> BEFORE / AFTER — DRAG THE BENCHMARK 🎚</h2>
-  <div class="sub">The paper’s three headline examples, panel by panel. Drag the wand — and compare the whole field while you’re at it.</div>
-  <div class="lvl-btns" id="bmLvls"></div>
-  <div class="compare" id="bmCmp">
-    <img id="bmBad" src="img/main_horse_in.jpg" alt="input image" draggable="false">
-    <div class="good" id="bmGood"><img id="bmGoodImg" src="img/main_horse_out.jpg" alt="BluePixel output" draggable="false"></div>
-    <div class="handle" id="bmHandle">🪄</div>
-    <span class="tagchip tag-good" id="bmAfterTag">AFTER · BLUEPIXEL</span>
-    <span class="tagchip tag-bad">BEFORE · INPUT</span>
-  </div>
-  <div class="vsline"><span class="vslbl">COMPARE THE FIELD ▸</span><span class="vschips" id="vschips"></span></div>
-  <div class="arcade-hint">The same job takes <b style="color:#a8d8ff">8.7 s</b> at native 4K — registration opens soon.</div>
-</div>
 
 <div class="card">
   <h2>THE SCOREBOARD 🏆</h2>
@@ -448,7 +486,7 @@
 
 <div class="card">
   <h2>ABSTRACT</h2>
-  <p>Instruction-driven image editing has reached native 4K, yet how such editors are trained remains undisclosed, and pretraining one from scratch is beyond most teams. The task itself compounds the difficulty: a single end-to-end editor cannot make precise parametric adjustments, match specialized experts, or interpret the vague instructions users actually write. We argue that 4K editing is a <i>system</i> problem rather than a single-model problem, and present <b style="color:#a8d8ff">BluePixel</b>, a native-4K editing model with an agent framework; the complete training recipe is disclosed in this paper. To make 4K training practical, BluePixel turns a 1K-pretrained editor into a native-4K one through a progressive VAE adaptation that keeps 4K training as affordable as 1K, absorbs a long tail of vertical editing skills through continual learning, and refines the aesthetic–fidelity trade-off with reinforcement learning. Background-anchored distillation then compresses 50 denoising steps to 4, completing a 4K edit in 8.7&nbsp;s on a single Kunlunxin P800 XPU while preserving task success rate and background consistency. For controllability, BluePixel Agent decomposes user instructions into specialist and general operations, verifies every result with the same reward model that guided its training, and retries within bounded attempts. On VINS-4KEval++ (3,305 native-4K editing cases), BluePixel ranks second among seven models, with non-edited-region consistency second only to GPT Image 2.</p>
+  <p>Instruction-driven image editing has reached native 4K, yet how such editors are trained remains undisclosed, and pretraining one from scratch is beyond most teams. The task itself compounds the difficulty: a single end-to-end editor cannot make precise parametric adjustments, match specialized experts, or interpret the vague instructions users actually write. <b style="color:#a8d8ff">We argue that 4K editing is a system problem rather than a single-model problem, and present BluePixel, which couples a native-4K editing model with an agent harness; the complete training recipe is disclosed in this paper.</b> The model makes 4K training practical: it turns a 1K-pretrained editor into a native-4K one through progressive VAE adaptation that keeps 4K training as affordable as 1K, absorbs a long tail of vertical editing skills through continual learning, and refines the aesthetic–fidelity trade-off with reinforcement learning. Distillation via <i>source-anchored target projection</i> (SATP) then compresses 50 denoising steps to 4, <b style="color:#a8d8ff">completing a 4K edit in 8.7&nbsp;s on a single Kunlunxin P800 XPU</b> while preserving task success rate and background consistency. The harness, BluePixel Agent, makes editing controllable: it decomposes user instructions into specialist and general operations, verifies every result with the same reward model that guided training, and retries within bounded attempts. On VINS-4KEval++ (3,305 native-4K cases), BluePixel ranks second among seven models, behind only GPT Image 2 in non-edited-region consistency.</p>
 </div>
 
 <div class="card" id="refs">
@@ -475,14 +513,15 @@
             Jin, Min and Liu, Qiang and Liu, Junbo and Shi, Penggang and Sun, Sheng and
             Wang, Xiao and Zhang, Yong and Qi, Zhongang and Li, Wei and
             Ma, Chao and Tai, Ying and Ge, Yanhao},
-  journal= {arXiv preprint},  % TODO: fill in arXiv id when available
+  journal= {arXiv preprint arXiv:2610.19882},
+  url    = {https://arxiv.org/abs/2610.19882},
   year   = {2026}
 }</pre>
 </div>
 
 <footer id="foot">
   Built with <span class="heart" id="heart">♥</span> and far too many pixels<span class="blink">▌</span><br>
-  <span style="font-size:18px">BluePixel Team @ vivo — try it: coming soon</span><br>
+  <span style="font-size:18px">BluePixel Team @ vivo</span><br>
   <span style="font-size:16px; opacity:.7">psst… try the Konami code</span>
 </footer>
 
@@ -568,107 +607,68 @@
     if (++bursts===3) toast('POKE MASTER +20','the slime acknowledges you','poke');
   });
 
-  /* ---------- reusable compare slider ---------- */
-  function makeCompare(cfg){
-    var lvls = document.getElementById(cfg.root+'Lvls'),
-        cmp = document.getElementById(cfg.root+'Cmp'),
-        bad = document.getElementById(cfg.root+'Bad'),
-        goodWrap = document.getElementById(cfg.root+'Good'),
-        goodImg = document.getElementById(cfg.root+'GoodImg'),
-        handle = document.getElementById(cfg.root+'Handle'),
-        afterTag = document.getElementById(cfg.root+'AfterTag');
-    var dragging = false, swept = false;
-    bad.addEventListener('load', function(){
-      cmp.style.aspectRatio = bad.naturalWidth + '/' + bad.naturalHeight;
-    });
-    function setX(p){
-      p = Math.max(0, Math.min(100, p));
-      goodWrap.style.width = p+'%'; handle.style.left = p+'%';
-      if (cfg.onSweep && p > cfg.onSweep.at && !swept){ swept = true; cfg.onSweep.fn(); }
-    }
-    function fromEvent(e){
-      var r = cmp.getBoundingClientRect();
-      var x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-      setX(x / r.width * 100);
-    }
-    cmp.addEventListener('pointerdown', function(e){ dragging=true; cmp.setPointerCapture(e.pointerId); fromEvent(e); });
-    cmp.addEventListener('pointermove', function(e){ if(dragging) fromEvent(e); });
-    cmp.addEventListener('pointerup', function(){ dragging=false; });
-    cmp.addEventListener('pointercancel', function(){ dragging=false; });
-    function select(t){
-      bad.src = t.b; goodImg.src = t.a; setX(cfg.startX || 14);
-      if (afterTag && t.afterLabel) afterTag.textContent = t.afterLabel;
-      if (cfg.onSelect) cfg.onSelect(t);
-    }
-    if (lvls){
-      cfg.tabs.forEach(function(t){
-        var b = document.createElement('button'); b.className='lvl'; b.textContent=t.name;
-        b.addEventListener('click', function(){
-          lvls.querySelectorAll('.lvl').forEach(function(x){x.classList.remove('on');});
-          b.classList.add('on'); select(t);
-        });
-        lvls.appendChild(b);
-      });
-      lvls.firstChild.classList.add('on');
-    }
-    select(cfg.tabs[0]);
-    return { select: select };
-  }
-
-  /* ---------- STAGE 1: phase slider ---------- */
-  makeCompare({
-    root:'ph', startX:50,
-    tabs:[
-      {name:'GIRAFFE \u2192 ELEPHANT', b:'img/ph1_giraffe_p1.jpg', a:'img/ph1_giraffe_fin.jpg'},
-      {name:'GREVE STENCIL',           b:'img/ph1_greve_p1.jpg',   a:'img/ph1_greve_fin.jpg'},
-      {name:'BEACH DAY',               b:'img/ph1_beach_p1.jpg',   a:'img/ph1_beach_fin.jpg'}
-    ]
-  });
-
-  /* ---------- STAGE 5: benchmark slider + field chips ---------- */
-  var BM_LEVELS = [
-    {name:'LEVEL 1 · HORSE COMPOUND EDIT', before:'img/main_horse_in.jpg', after:'img/main_horse_out.jpg'},
-    {name:'LEVEL 2 · BORED EXPRESSION',    before:'img/main_expr_in.jpg',  after:'img/main_expr_out.jpg'},
-    {name:'LEVEL 3 · VINYL SHOP SIGN',     before:'img/main_sign_in.jpg',  after:'img/main_sign_out.jpg'}
-  ];
-  var MODELS = [
-    ['GPT IMAGE 2','gpt'], ['NANO BANANA PRO','nbp'], ['NANO BANANA 2.0','nb2'],
-    ['SEEDREAM 5.0 LITE','seed'], ['WAN 2.7 PRO','wan'], ['KLING','kling']
-  ];
-  function cmpImg(L, key){ return L.before.replace(/in\.jpg$/, key+'.jpg').replace('main_','cmp_'); }
-  var vschips = document.getElementById('vschips');
-  function buildChips(L){
-    vschips.innerHTML = '';
-    var bp = document.createElement('button');
-    bp.className='vchip gold on'; bp.textContent='BLUEPIXEL';
-    bp.addEventListener('click', function(){
-      vschips.querySelectorAll('.vchip').forEach(function(x){x.classList.remove('on');});
-      bp.classList.add('on');
-      document.getElementById('bmGoodImg').src = L.after;
-      document.getElementById('bmAfterTag').textContent = 'AFTER · BLUEPIXEL';
-      beep(880,.05);
-    });
-    vschips.appendChild(bp);
-    MODELS.forEach(function(M){
-      var c = document.createElement('button');
-      c.className='vchip'; c.textContent = M[0];
-      c.addEventListener('click', function(){
-        vschips.querySelectorAll('.vchip').forEach(function(x){x.classList.remove('on');});
-        c.classList.add('on');
-        document.getElementById('bmGoodImg').src = cmpImg(L, M[1]);
-        document.getElementById('bmAfterTag').textContent = 'AFTER · ' + M[0];
-        beep(880,.05);
-      });
-      vschips.appendChild(c);
+  /* ---------- showcase: cases, full result grid and detail comparison ---------- */
+  var showcaseCases = [{"key": "horse", "name": "01 · COMPOUND EDIT", "prompt": "Zoom in on the man and horse, change the white shirt to a dark brown tunic, and swap the saddle pad for red leather."}, {"key": "expr", "name": "02 · EXPRESSION", "prompt": "Change the woman's expression to look bored with half-closed eyes, preserving her pose and the wooden fence background."}, {"key": "sign", "name": "03 · TEXT STYLE", "prompt": "Change the visual style of the 'USED VINYL SHOP' text on the orange window to a bold font and white color, keeping the wording unchanged."}];
+  var showcaseModels = [["GPT IMAGE 2", "gpt"], ["NANO BANANA PRO", "nbp"], ["NANO BANANA 2.0", "nb2"], ["SEEDREAM 5.0 LITE", "seed"], ["WAN 2.7 PRO", "wan"], ["KLING", "kling"]];
+  var selectedCase = 0, selectedModelButton = null;
+  var caseButtons = document.querySelectorAll('#showcaseCases .lvl');
+  var resultButtons = document.querySelectorAll('#modelResults .model-result');
+  var detail = document.getElementById('showcaseDetail');
+  var zoom = document.getElementById('detailZoom');
+  function showcaseImage(key, model){ return 'img/' + (model ? 'cmp_' + key + '_' + model : 'main_' + key + '_out') + '.jpg'; }
+  function resetDetailZoom(){
+    zoom.value = '1'; document.getElementById('detailZoomValue').textContent = '1×';
+    ['detailBluePixel','detailOther'].forEach(function(id){
+      var img = document.getElementById(id); img.style.transform = 'scale(1)'; img.style.transformOrigin = '50% 50%';
     });
   }
-  makeCompare({
-    root:'bm', startX:14,
-    tabs: BM_LEVELS.map(function(L){
-      return {name:L.name, b:L.before, a:L.after, afterLabel:'AFTER · BLUEPIXEL', _L:L};
-    }),
-    onSelect:function(t){ buildChips(t._L); }
+  function closeDetail(){
+    detail.hidden = true;
+    resultButtons.forEach(function(button){ button.setAttribute('aria-pressed','false'); button.setAttribute('aria-expanded','false'); });
+  }
+  function selectShowcase(index){
+    selectedCase = index; var example = showcaseCases[index];
+    caseButtons.forEach(function(button,i){button.classList.toggle('on',i===index);button.setAttribute('aria-pressed',String(i===index));});
+    document.getElementById('showcasePrompt').textContent = example.prompt;
+    var input = document.getElementById('showcaseInput'), output = document.getElementById('showcaseBluePixel');
+    input.src = 'img/main_' + example.key + '_in.jpg'; input.alt = 'Original image: ' + example.name;
+    output.src = showcaseImage(example.key); output.alt = 'BluePixel result: ' + example.name;
+    resultButtons.forEach(function(button,i){
+      var img = button.querySelector('img'); img.src = showcaseImage(example.key,showcaseModels[i][1]);
+      img.alt = showcaseModels[i][0] + ' result: ' + example.name;
+    });
+    closeDetail(); resetDetailZoom();
+  }
+  caseButtons.forEach(function(button,index){button.addEventListener('click',function(){selectShowcase(index);});});
+  resultButtons.forEach(function(button,index){button.addEventListener('click',function(){
+    selectedModelButton = button;
+    resultButtons.forEach(function(item){item.setAttribute('aria-pressed',String(item===button));item.setAttribute('aria-expanded',String(item===button));});
+    var model = showcaseModels[index], example = showcaseCases[selectedCase];
+    document.getElementById('detailBluePixel').src = showcaseImage(example.key);
+    document.getElementById('detailOther').src = showcaseImage(example.key,model[1]);
+    document.getElementById('detailOther').alt = model[0] + ' result: ' + example.name;
+    document.getElementById('detailModelName').textContent = model[0];
+    document.getElementById('detailTitle').textContent = 'BluePixel vs. ' + model[0];
+    resetDetailZoom(); detail.hidden = false;
+    document.getElementById('detailTitle').focus({preventScroll:true});
+    detail.scrollIntoView({behavior:reduced?'instant':'smooth',block:'nearest'});
+  });});
+  document.getElementById('closeDetail').addEventListener('click',function(){closeDetail();if(selectedModelButton)selectedModelButton.focus();});
+  detail.addEventListener('keydown',function(event){if(event.key==='Escape'){closeDetail();if(selectedModelButton)selectedModelButton.focus();}});
+  zoom.addEventListener('input',function(){
+    document.getElementById('detailZoomValue').textContent = zoom.value + '×';
+    ['detailBluePixel','detailOther'].forEach(function(id){document.getElementById(id).style.transform = 'scale(' + zoom.value + ')';});
   });
+  document.querySelectorAll('.detail-viewport').forEach(function(viewport){
+    function setOrigin(event){
+      var rect = viewport.getBoundingClientRect();
+      var x = Math.max(0,Math.min(100,(event.clientX-rect.left)/rect.width*100));
+      var y = Math.max(0,Math.min(100,(event.clientY-rect.top)/rect.height*100));
+      ['detailBluePixel','detailOther'].forEach(function(id){document.getElementById(id).style.transformOrigin = x+'% '+y+'%';});
+    }
+    viewport.addEventListener('pointermove',setOrigin); viewport.addEventListener('pointerdown',setOrigin);
+  });
+  selectShowcase(0);
 
   /* ---------- bars ---------- */
   var io = new IntersectionObserver(function(es){ es.forEach(function(e){
