@@ -1,3 +1,3 @@
-{"image_name": "assets/test_input.jpg", "edit_prompt": "make the sky sunset orange and add warm light"}
-{"image_name": "assets/test_input.jpg", "edit_prompt": "turn the image into black and white photography"}
-{"image_name": "assets/test_input.jpg", "edit_prompt": "make it a rainy day with wet reflections"}
+{"image_name": "assets/test_input.jpg", "edit_prompt": "Change the gray sweater to burgundy red. Preserve the person, pose, accessories, and background."}
+{"image_name": "assets/test_hiking.jpg", "edit_prompt": "Change the light green jacket to navy blue. Preserve the person, hat, sunglasses, pose, and background."}
+{"image_name": "assets/test_forest.jpg", "edit_prompt": "Change the hat to warm brown. Preserve the person, hairstyle, clothing, pose, and forest background."}

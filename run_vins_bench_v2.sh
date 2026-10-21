@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # =====================================================================
 # VINS-Bench v2 推理脚本 (BluePixel 4 步蒸馏模型)
@@ -9,7 +10,7 @@
 # =====================================================================
 
 # 1. 环境与路径配置
-MODEL_DIR="/path/to/BluePixel-1.0-Distill"
+MODEL_DIR="/path/to/BluePixel-Turbo"
 JSONL="assets/test_examples.jsonl"
 OUT_DIR="./output/vins_bench_v2"
 
