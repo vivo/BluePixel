@@ -4,9 +4,15 @@
 
 **Native 4K Image Editing Model based on Flux 2 Klein and DCAE**
 
-▶ [Demo](https://bluepixel.vivo.com.cn/bluepixel-model) • 🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-Turbo/) • [Paper](https://arxiv.org/abs/2610.19882) • 📜 [Apache 2.0 License](LICENSE) • [中文](README_CN.md)
+🌐 [Project Page](https://tech.vivo.com/BluePixel/) • 🎨 [Demo](https://bluepixel.vivo.com.cn/bluepixel-model) • 🤗 [Turbo](https://huggingface.co/openvivo/BluePixel-Turbo/) / [Turbo-INT8](https://huggingface.co/openvivo/BluePixel-Turbo-INT8) • 📄 [Paper](https://arxiv.org/abs/2610.19882) • 🌍 [中文](README_CN.md)
 
 </div>
+
+## Updates
+
+2026.11.17 — Released [BluePixel-Turbo-INT8](https://huggingface.co/openvivo/BluePixel-Turbo-INT8), a quantized version with only a slight loss in quality compared to BluePixel-Turbo. We also released the [ComfyUI node](https://registry.comfy.org/nodes/bluepixel-comfyui), which supports both BluePixel-Turbo and BluePixel-Turbo-INT8. Thanks to the ModelScope community for making both models available: [BluePixel-Turbo](https://www.modelscope.cn/models/vivo/BluePixel-Turbo) and [BluePixel-Turbo-INT8](https://www.modelscope.cn/models/vivo/BluePixel-Turbo-INT8).
+
+2026.11.03 — We update BluePixel to the **SATP-distilled version**, leveraging teacher–student distillation to enable high-quality image editing with significantly fewer sampling steps and lower inference costs. This update is an intermediate checkpoint without additional post-training. Further optimization, including reinforcement learning, is planned to improve aesthetic quality and instruction-following fidelity. 🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-Turbo/)
 
 ## Introduction
 
@@ -26,6 +32,15 @@ Four key features of BluePixelModel:
 
 ## Quick Start
 
+### ComfyUI Workflows
+
+Install the [BluePixel ComfyUI node](https://registry.comfy.org/nodes/bluepixel-comfyui), then download the appropriate workflow and drag it into ComfyUI:
+
+- [BluePixel-Turbo 4K editing workflow](workflows/bluepixel_edit_4k.json)
+- [BluePixel-Turbo-INT8 4K editing workflow](workflows/bluepixel_edit_4k_int8.json)
+
+Prepare the models according to the node's instructions, select the model in the loader node, and choose an input image in the `Load Image` node. The INT8 workflow also requires the corresponding BluePixel-Turbo components.
+
 ### Requirements
 
 ```bash
@@ -38,34 +53,47 @@ Download the complete checkpoint before running the examples:
 hf download openvivo/BluePixel-Turbo --local-dir ./BluePixel-Turbo
 ```
 
-Use a CUDA environment with BF16 support. The dependencies target the Diffusers 0.36 API; GPU inference must be validated in your deployment environment.
+Use a CUDA environment with BF16 support. The dependencies include `diffusers>=0.40.0`; see `requirements.txt` for the full list.
 
 ### Single Image Editing
 
 ```python
-import torch
-from PIL import Image
 from vins_infer import load_pipeline
 
 pipe = load_pipeline(
     "BluePixel-Turbo",
     device="cuda",
     vae_tiling=False,
-    lora_scale=None,
-    shift=0,
-    mu_mode="empirical",
 )
 
-result = pipe(
-    image=Image.open("assets/test_input.jpg").convert("RGB"),
+result = pipe.generate(
+    image_path="assets/test_input.jpg",
     instruction="Change the gray sweater to burgundy red.",
-    num_inference_steps=4,
-    guidance_scale=3.0,
-    target_pixels=4096 * 4096,
-    generator=torch.Generator(device="cuda").manual_seed(42),
-).images[0]
+    seed=42,
+    num_steps=4,
+    cps_eta=0.9,
+    mu_mode="training",
+)
 
 result.save("output.jpg")
+```
+
+### INT8 Model
+
+The INT8 release uses the same script: when `transformer/config.json` carries a
+`quantization_config`, the transformer is loaded as weight-only int8
+(per-output-channel scale); otherwise FP32 is used. An INT8 directory only holds
+the transformer, so point `--base-model-dir` at the FP32 release for
+vae / text_encoder / tokenizer / scheduler.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
+    --model-dir /path/to/bluepixel_..._int8 \
+    --base-model-dir /path/to/BluePixel-Turbo \
+    --jsonl /path/to/your_tasks.jsonl \
+    --out-dir ./output_int8 \
+    --bucket-area 16777216 \
+    --int8-compute-dtype fp32
 ```
 
 ### Batch Inference
@@ -76,32 +104,43 @@ Prepare a jsonl file with one task per line, each containing `image_name` (input
 {"image_name": "/path/to/input.png", "edit_prompt": "make the hair red"}
 ```
 
-Run:
+Run directly:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
     --model-dir BluePixel-Turbo \
     --jsonl /path/to/your_tasks.jsonl \
     --out-dir ./output \
-    --target-pixels 16777216 \
+    --bucket-area 16777216 \
     --steps 4 \
-    --guidance 3.0 \
+    --cps-eta 0.9 \
+    --mu-mode training \
     --seed 42 \
-    --mu-mode empirical \
     --instruction-field edit_prompt
 ```
 
-Resume is enabled by default: successful tasks are skipped and failed tasks are retried. `--no-resume` reruns all selected tasks and overwrites their output images; use it with a single worker. Use a new output directory when changing the model or inference settings.
+Alternatively, run the same task through the launch script. Its default model path is a placeholder, so set `MODEL_DIR`:
+
+```bash
+MODEL_DIR=BluePixel-Turbo JSONL=/path/to/your_tasks.jsonl OUT_DIR=./output \
+    CUDA_VISIBLE_DEVICES=0 bash run_infer.sh
+```
+
+Outputs go to `--out-dir/seed{N}/`; a `results.jsonl` is written with the original
+jsonl rows plus an `edit_image` field. `--resume` (default) skips existing output
+files, `--no-resume` regenerates and overwrites them.
 
 ### Recommended Resolutions
 
-BluePixelModel natively supports 4K. Control output pixel count via `--target-pixels`:
+BluePixel natively supports 4K. Control output pixel count via `--bucket-area`.
+The bucket is selected by aspect ratio and aligned to `--bucket-multiple 64`
+before resize+center-crop, matching the reference release pipeline.
 
 ```python
-target_pixels = {
+bucket_area = {
     "1K": 1024 * 1024,      # 1048576
     "2K": 1440 * 1440,      # 2073600
-    "4K": 4096 * 4096,      # 16777216
+    "4K": 4096 * 4096,      # 16777216 (default)
 }
 ```
 
@@ -109,49 +148,53 @@ target_pixels = {
 
 | Parameter | Default | Description |
 |------|------|------|
-| `num_inference_steps` | 4 | Number of denoising steps |
-| `guidance_scale` | 3.0 | CFG guidance scale |
-| `target_pixels` | 16777216 | Target pixel count (4K = 4096×4096) |
-| `mu_mode` | `"empirical"` | μ-shift mode |
+| `--steps` | 4 | Number of denoising steps |
+| `--denoising-step-list` | `1000 750 500 250` | Custom denoising schedule |
+| `--cps-eta` | 0.9 | CPS sampler stochasticity (0 = deterministic Euler) |
+| `--bucket-area` | 16777216 | Target pixel count (4K = 4096×4096) |
+| `--mu-mode` | `training` | Sigma shift mode (`none` / `empirical` / `training`) |
+| `--dtype` | bf16 | Text encoder and latent dtype |
+| `--int8-compute-dtype` | fp32 | INT8 forward compute dtype (`fp32` / `bf16`) |
 
 ### Memory Optimization
 
-For devices with limited memory, enable VAE tiling:
+For devices with limited memory, add `--vae-tiling` in the command line.
 
-```python
-pipe = load_pipeline(
-    "BluePixel-Turbo", device="cuda", vae_tiling=True, mu_mode="empirical"
-)
-```
-
-Or add `--vae-tiling` in the command line.
+The FP32 transformer needs ~36 GB of resident weights (36.3 GB transformer + 2.7 GB VAE
++ 8.2 GB bf16 text encoder), so 4K inference is best on 80 GB+ GPUs. The INT8
+transformer weights are ~9.1 GB.
 
 ### Command-line Arguments
 
 | Argument | Type | Default | Description |
 |------|------|--------|------|
-| `--model-dir` | str | **Required** | Path to model weights directory |
+| `--model-dir` | str | **Required** | Model weights directory (INT8 auto-detected) |
+| `--base-model-dir` | str | `None` | Directory with vae/text_encoder/tokenizer/scheduler (defaults to `--model-dir`) |
 | `--jsonl` | str | **Required** | Task list jsonl file |
-| `--out-dir` | str | Auto-derived | Output directory |
-| `--target-pixels` | int | `16777216` | Target pixel count (4K = 4096×4096) |
-| `--steps` | int | `4` | Number of denoising steps |
-| `--guidance` | float | `3.0` | CFG guidance scale |
+| `--out-dir` | str | **Required** | Output directory (per-seed subdirectories) |
+| `--device` | str | `cuda` | Inference device |
+| `--image-field` | str | `image_name` | Input image path field name |
+| `--instruction-field` | str | `edit_prompt` | Editing instruction field name |
+| `--task-types` | list | `None` | Only process the given task types |
+| `--start-idx` | int | `0` | Dataset start index |
+| `--num-samples` | int | `None` | Number of samples to process |
+| `--limit` | int | `None` | Only process the first N tasks |
 | `--seed` | int | `42` | Random seed |
 | `--seeds` | str | `None` | Comma-separated multiple random seeds |
-| `--shift` | float | `0.0` | DiT shift parameter |
-| `--mu-mode` | str | `empirical` | μ-shift mode (`empirical` / `training`) |
-| `--instruction-field` | str | `edit_prompt` | Name of the editing instruction field |
-| `--device-id` | int | `0` | CUDA device id (usually set via `CUDA_VISIBLE_DEVICES`) |
-| `--lora-scale` | float | `None` | LoRA scale factor |
-| `--sft-ckpt` | str | `None` | SFT full model checkpoint path |
-| `--sft-lora-ckpt` | str | `None` | SFT LoRA checkpoint path |
+| `--steps` | int | `4` | Number of denoising steps |
+| `--denoising-step-list` | list | `1000 750 500 250` | Denoising schedule |
+| `--cps-eta` | float | `0.9` | CPS sampler stochasticity |
+| `--mu-mode` | str | `training` | Sigma shift mode (`none` / `empirical` / `training`) |
+| `--sigma-image-seq-len` | int | `None` | Override sequence length used for sigma shift |
+| `--dtype` | str | `bf16` | Text encoder / latent dtype |
+| `--int8-compute-dtype` | str | `fp32` | INT8 forward compute dtype |
+| `--bucket-ratios` | list | 14 defaults | Bucket aspect-ratio set |
+| `--bucket-area` | int | `16777216` | Bucket target area (4K) |
+| `--bucket-multiple` | int | `64` | Bucket side alignment |
 | `--vae-tiling` | flag | `False` | Enable VAE tiling to save memory |
-| `--limit` | int | `None` | Only process the first N tasks |
-| `--lock-timeout` | int | `1800` | File lock timeout in seconds |
-| `--metadata-file` | str | `metadata.jsonl` | Output metadata file name |
-| `--no-resume` | flag | `False` | Rerun selected tasks and overwrite outputs (single worker) |
+| `--no-resume` | flag | `False` | Regenerate all selected tasks and overwrite outputs |
+| `--no-results-jsonl` | flag | `False` | Skip writing results.jsonl |
 | `--dry-run` | flag | `False` | Print task plan only, do not run inference |
-| `--check` | flag | `False` | Only check task status, do not run inference |
 
 ## Training
 
@@ -240,11 +283,11 @@ Input Image (4096×4096) + Edit Prompt
            └──────────┬────────────┘
                       ▼
              ┌─ 4-step Denoising ─┐
-             │ FlowMatchEuler       │
+             │ CPS (eta=0.9)       │
              │ [Noisy, Source Img]  │
              │ Joint Attention      │
-             │ CFG (scale=3.0)      │
-             │ Empirical μ-shift    │
+             │ No CFG (scale=1.0)   │
+             │ Training μ-shift     │
              └──────────┬───────────┘
                         ▼
              DCAE-F64 Decode (64× ↑)
@@ -257,8 +300,8 @@ Input Image (4096×4096) + Edit Prompt
 
 ```
 BluePixelModel/
-├── vins_infer.py                     # Batch inference script (resume + file-lock multi-process)
-├── run_vins_bench_v2.sh              # Single-GPU launch script (one-command test)
+├── vins_infer.py                     # Single-GPU inference (FP32 / INT8, resume support)
+├── run_infer.sh                      # Single-GPU launch script (one-command test)
 ├── assets/
 │   ├── test_input.jpg                # Night portrait (sweater color editing)
 │   ├── test_hiking.jpg               # Hiking portrait (jacket color editing)
