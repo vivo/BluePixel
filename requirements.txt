@@ -1,6 +1,6 @@
 torch>=2.1.0
 torchvision>=0.16.0
-diffusers>=0.36.0,<0.37.0
+diffusers>=0.40.0
 transformers>=4.57.1,<5
 accelerate>=0.25.0
 pillow>=9.0.0
@@ -8,5 +8,4 @@ safetensors>=0.4.0
 sentencepiece>=0.2.0
 protobuf>=4.25.0
 numpy
-peft
 huggingface_hub>=0.34.0,<1

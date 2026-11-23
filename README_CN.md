@@ -4,9 +4,15 @@
 
 **原生 4K 图像编辑模型，基于 Flux 2 Klein 与 DCAE**
 
-▶ [在线体验](https://bluepixel.vivo.com.cn/bluepixel-model) • 🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-Turbo/) • [论文](https://arxiv.org/abs/2610.19882) • 📜 [Apache 2.0 License](LICENSE) • [English](README.md)
+🌐 [项目主页](https://tech.vivo.com/BluePixel/) • 🎨 [在线体验](https://bluepixel.vivo.com.cn/bluepixel-model) • 🤗 [Turbo](https://huggingface.co/openvivo/BluePixel-Turbo/) / [Turbo-INT8](https://huggingface.co/openvivo/BluePixel-Turbo-INT8) • 📄 [论文](https://arxiv.org/abs/2610.19882) • 🌍 [English](README.md)
 
 </div>
+
+## 更新
+
+2026.11.17 — 发布 [BluePixel-Turbo-INT8](https://huggingface.co/openvivo/BluePixel-Turbo-INT8) 量化版本，相比 BluePixel-Turbo 仅有轻微的效果损失。同时发布 [ComfyUI 节点](https://registry.comfy.org/nodes/bluepixel-comfyui)，支持 BluePixel-Turbo 和 BluePixel-Turbo-INT8 两个模型。感谢魔搭社区在 ModelScope 上提供模型下载：[BluePixel-Turbo](https://www.modelscope.cn/models/vivo/BluePixel-Turbo) 和 [BluePixel-Turbo-INT8](https://www.modelscope.cn/models/vivo/BluePixel-Turbo-INT8)。
+
+2026.11.03 — 我们将 BluePixel 更新为 **SATP 蒸馏版本**，通过教师–学生蒸馏，以显著更少的采样步数和更低的推理成本实现高质量图像编辑。本次更新为尚未进行额外后训练的中间检查点。后续计划开展包括强化学习在内的进一步优化，以提升美学质量与指令遵循能力。🤗 [Hugging Face](https://huggingface.co/openvivo/BluePixel-Turbo/)
 
 ## 简介
 
@@ -26,6 +32,15 @@ BluePixelModel 的四大核心特点：
 
 ## 快速开始
 
+### ComfyUI 工作流
+
+安装 [BluePixel ComfyUI 节点](https://registry.comfy.org/nodes/bluepixel-comfyui)，然后下载对应工作流并拖入 ComfyUI：
+
+- [BluePixel-Turbo 4K 编辑工作流](workflows/bluepixel_edit_4k.json)
+- [BluePixel-Turbo-INT8 4K 编辑工作流](workflows/bluepixel_edit_4k_int8.json)
+
+按照节点说明准备模型，在加载节点中选择模型，并在 `Load Image` 节点中选择输入图片。INT8 工作流还需要 BluePixel-Turbo 的相应组件。
+
 ### 环境要求
 
 ```bash
@@ -38,34 +53,46 @@ pip install -r requirements.txt
 hf download openvivo/BluePixel-Turbo --local-dir ./BluePixel-Turbo
 ```
 
-使用支持 BF16 的 CUDA 环境。依赖范围对应 Diffusers 0.36 API，实际 GPU 推理需在部署环境验证。
+使用支持 BF16 的 CUDA 环境。依赖要求包括 `diffusers>=0.40.0`，完整列表见 `requirements.txt`。
 
 ### 单图编辑
 
 ```python
-import torch
-from PIL import Image
 from vins_infer import load_pipeline
 
 pipe = load_pipeline(
     "BluePixel-Turbo",
     device="cuda",
     vae_tiling=False,
-    lora_scale=None,
-    shift=0,
-    mu_mode="empirical",
 )
 
-result = pipe(
-    image=Image.open("assets/test_input.jpg").convert("RGB"),
+result = pipe.generate(
+    image_path="assets/test_input.jpg",
     instruction="Change the gray sweater to burgundy red.",
-    num_inference_steps=4,
-    guidance_scale=3.0,
-    target_pixels=4096 * 4096,
-    generator=torch.Generator(device="cuda").manual_seed(42),
-).images[0]
+    seed=42,
+    num_steps=4,
+    cps_eta=0.9,
+    mu_mode="training",
+)
 
 result.save("output.jpg")
+```
+
+### INT8 模型
+
+INT8 权重版本与 FP32 使用同一个推理脚本：当 `transformer/config.json` 中带有
+`quantization_config` 时自动切换为 INT8 加载（weight-only int8，per-output-channel
+scale），否则按 FP32 加载。INT8 目录只包含 transformer，其余组件（vae /
+text_encoder / tokenizer / scheduler）需通过 `--base-model-dir` 指向 FP32 发布目录。
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
+    --model-dir /path/to/bluepixel_..._int8 \
+    --base-model-dir /path/to/BluePixel-Turbo \
+    --jsonl /path/to/your_tasks.jsonl \
+    --out-dir ./output_int8 \
+    --bucket-area 16777216 \
+    --int8-compute-dtype fp32
 ```
 
 ### 批量推理
@@ -76,32 +103,41 @@ result.save("output.jpg")
 {"image_name": "/path/to/input.png", "edit_prompt": "make the hair red"}
 ```
 
-运行：
+直接运行：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python vins_infer.py \
     --model-dir BluePixel-Turbo \
     --jsonl /path/to/your_tasks.jsonl \
     --out-dir ./output \
-    --target-pixels 16777216 \
+    --bucket-area 16777216 \
     --steps 4 \
-    --guidance 3.0 \
+    --cps-eta 0.9 \
+    --mu-mode training \
     --seed 42 \
-    --mu-mode empirical \
     --instruction-field edit_prompt
 ```
 
-默认跳过成功任务，失败任务会重试。`--no-resume` 重新执行全部选中任务并覆盖对应输出图片，请使用单个 worker。切换模型或推理参数时，请使用新的输出目录。
+也可以通过启动脚本运行同一任务；脚本的模型路径默认为占位路径，需要设置 `MODEL_DIR`：
+
+```bash
+MODEL_DIR=BluePixel-Turbo JSONL=/path/to/your_tasks.jsonl OUT_DIR=./output \
+    CUDA_VISIBLE_DEVICES=0 bash run_infer.sh
+```
+
+输出按 `--out-dir/seed{N}/` 分目录，并写出 `results.jsonl`（原始 jsonl 行 + `edit_image` 字段）。
+`--resume`（默认开启）会跳过已存在的输出文件，`--no-resume` 重新生成并覆盖。
 
 ### 推荐分辨率
 
-BluePixelModel 原生支持 4K，可通过 `--target-pixels` 控制输出像素数：
+BluePixel 原生支持 4K，通过 `--bucket-area` 控制输出像素数。实现上与参考发布流程一致：
+先按面积和宽高比选择对齐 bucket（边长按 `--bucket-multiple 64` 对齐），再做 resize+center-crop。
 
 ```python
-target_pixels = {
+bucket_area = {
     "1K": 1024 * 1024,      # 1048576
     "2K": 1440 * 1440,      # 2073600
-    "4K": 4096 * 4096,      # 16777216
+    "4K": 4096 * 4096,      # 16777216（默认）
 }
 ```
 
@@ -109,49 +145,52 @@ target_pixels = {
 
 | 参数 | 默认值 | 说明 |
 |------|------|------|
-| `num_inference_steps` | 4 | 去噪步数 |
-| `guidance_scale` | 3.0 | CFG 引导强度 |
-| `target_pixels` | 16777216 | 目标像素数（4K = 4096×4096） |
-| `mu_mode` | `"empirical"` | μ-shift 模式 |
+| `--steps` | 4 | 去噪步数 |
+| `--denoising-step-list` | `1000 750 500 250` | 自定义去噪时刻表 |
+| `--cps-eta` | 0.9 | CPS 采样随机性（0 = 确定性 Euler） |
+| `--bucket-area` | 16777216 | 目标像素数（4K = 4096×4096） |
+| `--mu-mode` | `training` | sigma shift 模式（`none` / `empirical` / `training`） |
+| `--dtype` | bf16 | text encoder 与 latent dtype |
+| `--int8-compute-dtype` | fp32 | INT8 模型前向计算 dtype（`fp32` / `bf16`） |
 
 ### 显存优化
 
-对于显存受限的设备，可以启用 VAE tiling：
+对于显存受限的设备，可以启用 VAE tiling：命令行添加 `--vae-tiling`。
 
-```python
-pipe = load_pipeline(
-    "BluePixel-Turbo", device="cuda", vae_tiling=True, mu_mode="empirical"
-)
-```
-
-或在命令行添加 `--vae-tiling`。
+FP32 transformer 常驻显存约 36 GB（权重 36.3 GB + VAE 2.7 GB + text encoder bf16 8.2 GB），
+4K 推理建议 80 GB 以上显存；INT8 transformer 权重约 9.1 GB，显存占用显著更低。
 
 ### 命令行参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--model-dir` | str | **必填** | 模型权重目录 |
+| `--model-dir` | str | **必填** | 模型权重目录（INT8 自动识别） |
+| `--base-model-dir` | str | `None` | 存放 vae/text_encoder/tokenizer/scheduler 的目录（默认同 `--model-dir`） |
 | `--jsonl` | str | **必填** | 任务列表 jsonl 文件 |
-| `--out-dir` | str | 自动推导 | 输出目录 |
-| `--target-pixels` | int | `16777216` | 目标像素数（4K = 4096×4096） |
-| `--steps` | int | `4` | 去噪步数 |
-| `--guidance` | float | `3.0` | CFG 引导强度 |
+| `--out-dir` | str | **必填** | 输出目录（按 seed 分子目录） |
+| `--device` | str | `cuda` | 推理设备 |
+| `--image-field` | str | `image_name` | 输入图像路径字段名 |
+| `--instruction-field` | str | `edit_prompt` | 编辑指令字段名 |
+| `--task-types` | list | `None` | 仅处理指定 task_type |
+| `--start-idx` | int | `0` | 数据集起始下标 |
+| `--num-samples` | int | `None` | 处理样本数 |
+| `--limit` | int | `None` | 仅处理前 N 条 |
 | `--seed` | int | `42` | 随机种子 |
 | `--seeds` | str | `None` | 逗号分隔的多个随机种子 |
-| `--shift` | float | `0.0` | DiT shift 参数 |
-| `--mu-mode` | str | `empirical` | μ-shift 模式（`empirical` / `training`） |
-| `--instruction-field` | str | `edit_prompt` | 编辑指令字段名 |
-| `--device-id` | int | `0` | CUDA device id（通常通过 `CUDA_VISIBLE_DEVICES` 控制） |
-| `--lora-scale` | float | `None` | LoRA 缩放系数 |
-| `--sft-ckpt` | str | `None` | SFT 全量模型 checkpoint 路径 |
-| `--sft-lora-ckpt` | str | `None` | SFT LoRA checkpoint 路径 |
+| `--steps` | int | `4` | 去噪步数 |
+| `--denoising-step-list` | list | `1000 750 500 250` | 去噪时刻表 |
+| `--cps-eta` | float | `0.9` | CPS 采样随机性 |
+| `--mu-mode` | str | `training` | sigma shift 模式（`none` / `empirical` / `training`） |
+| `--sigma-image-seq-len` | int | `None` | 覆盖 sigma shift 使用的序列长度 |
+| `--dtype` | str | `bf16` | text encoder / latent dtype |
+| `--int8-compute-dtype` | str | `fp32` | INT8 前向计算 dtype |
+| `--bucket-ratios` | list | 默认 14 种 | bucket 宽高比集合 |
+| `--bucket-area` | int | `16777216` | bucket 目标面积（4K） |
+| `--bucket-multiple` | int | `64` | bucket 边长对齐粒度 |
 | `--vae-tiling` | flag | `False` | 启用 VAE tiling 以节省显存 |
-| `--limit` | int | `None` | 仅处理前 N 条任务 |
-| `--lock-timeout` | int | `1800` | 文件锁超时时间（秒） |
-| `--metadata-file` | str | `metadata.jsonl` | 输出元数据文件名 |
-| `--no-resume` | flag | `False` | 重跑选中任务并覆盖输出（单 worker） |
+| `--no-resume` | flag | `False` | 重跑全部选中任务并覆盖输出 |
+| `--no-results-jsonl` | flag | `False` | 不写出 results.jsonl |
 | `--dry-run` | flag | `False` | 只打印任务计划，不执行推理 |
-| `--check` | flag | `False` | 仅检查任务状态，不执行推理 |
 
 ## 训练
 
@@ -240,11 +279,11 @@ Input Image (4096×4096) + Edit Prompt
            └──────────┬────────────┘
                       ▼
              ┌─ 4-step Denoising ─┐
-             │ FlowMatchEuler       │
+             │ CPS (eta=0.9)       │
              │ [Noisy, Source Img]  │
              │ Joint Attention      │
-             │ CFG (scale=3.0)      │
-             │ Empirical μ-shift    │
+             │ No CFG (scale=1.0)   │
+             │ Training μ-shift     │
              └──────────┬───────────┘
                         ▼
              DCAE-F64 Decode (64× ↑)
@@ -257,8 +296,8 @@ Input Image (4096×4096) + Edit Prompt
 
 ```
 BluePixelModel/
-├── vins_infer.py                     # 批量推理脚本（支持断点续传、多进程文件锁）
-├── run_vins_bench_v2.sh              # 单卡推理启动脚本（一键测试）
+├── vins_infer.py                     # 单卡推理脚本（FP32 / INT8 自动识别，支持断点续传）
+├── run_infer.sh                      # 单卡推理启动脚本（一键测试）
 ├── assets/
 │   ├── test_input.jpg                # 夜景人像（毛衣改色）
 │   ├── test_hiking.jpg               # 户外人像（外套改色）

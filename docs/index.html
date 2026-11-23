@@ -66,6 +66,9 @@
   .tagline { color:var(--blue-light); font-size:24px; }
   .authors { color:var(--dim); font-size:20px; margin-top:10px; }
   .authors b { color:var(--ink); }
+  .authors span { white-space:nowrap; }
+  .authors sup, .affiliations sup { color:var(--blue-light); }
+  .affiliations { display:flex; justify-content:center; flex-wrap:wrap; gap:2px 18px; color:var(--dim); font-size:19px; margin-top:5px; }
   .hero { display:flex; gap:22px; align-items:flex-end; justify-content:center; margin:6px 0 2px; flex-wrap:wrap; }
   .hero svg { image-rendering:pixelated; }
   .mascot { cursor:pointer; animation:bob 1.2s steps(1) infinite alternate; }
@@ -288,7 +291,14 @@
       <span style="font-size:.62em; color:#a8d8ff;">TOWARD NATIVE 4K AGENTIC IMAGE EDITING</span>
     </h1>
     <div class="tagline">A native 4K editing model + an agent framework — complete training recipe disclosed.<span class="blink">▌</span></div>
-    <div class="authors"><b>Shanyan Guan</b>, Shiyu Li, Xin Li, Zhizhou Chen, Yunzhe Xu, Yuehao Liu, Ruixue Shen, Shiju Zhang, Min Jin, Qiang Liu, Junbo Liu, Penggang Shi, Sheng Sun, Xiao Wang, Yong Zhang, Zhongang Qi, Wei Li, Chao Ma, Ying Tai, Yanhao Ge — <b>vivo</b></div>
+    <div class="authors">
+      <span><b>Shanyan Guan</b><sup>1</sup></span>, <span>Shiyu Li<sup>1</sup></span>, <span>Xin Li<sup>1</sup></span>, <span>Zhizhou Chen<sup>2</sup></span>, <span>Yunzhe Xu<sup>2</sup></span>, <span>Yuehao Liu<sup>3</sup></span>, <span>Ruixue Shen<sup>1</sup></span>, <span>Shiju Zhang<sup>1</sup></span>, <span>Min Jin<sup>1</sup></span>, <span>Qiang Liu<sup>1</sup></span>, <span>Junbo Liu<sup>1</sup></span>, <span>Penggang Shi<sup>1</sup></span>, <span>Sheng Sun<sup>1</sup></span>, <span>Xiao Wang<sup>1</sup></span>, <span>Yong Zhang<sup>1</sup></span>, <span>Zhongang Qi<sup>1</sup></span>, <span>Wei Li<sup>1</sup></span>, <span>Chao Ma<sup>3</sup></span>, <span>Ying Tai<sup>2</sup></span>, <span>Yanhao Ge<sup>1</sup></span>
+    </div>
+    <div class="affiliations">
+      <span><sup>1</sup> vivo Mobile Communication Co., Ltd.</span>
+      <span><sup>2</sup> Nanjing University</span>
+      <span><sup>3</sup> Shanghai Jiao Tong University</span>
+    </div>
 
     <div class="btnrow">
       <a class="btn demo" href="https://bluepixel.vivo.com.cn/bluepixel-model" target="_blank" rel="noopener" title="Try BluePixel image editing">▶ <b>DEMO</b></a>
